@@ -1,0 +1,1 @@
+.bounce{animation:bounce 10s infinite}@keyframes bounce{0%,20%,50%,80%,to{transform:translateY(0)}40%{transform:translateY(-100px)}60%{transform:translateY(-100px)}}@media (max-width: 768px){.CCard,.CButton{width:100%!important}}

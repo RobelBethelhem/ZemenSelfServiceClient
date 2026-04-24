@@ -1,0 +1,376 @@
+/* src/views/admin/BingoGame/BingoGame.css */
+
+/* Player Setup Card */
+.setup-card {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Players' Bingo Cards */
+.player-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Bingo Card Styles */
+.bingo-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Highlight active card */
+.active-card {
+  border: 2px solid #28a745; /* Green border for active card */
+}
+
+/* Timer Badge */
+.timer-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background-color: #007bff; /* Blue color */
+  color: #fff;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+/* Bingo Grid */
+.bingo-grid {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Header Labels */
+.bingo-header {
+  background-color: #e9ecef;
+  padding: 8px 0;
+  text-align: center;
+  font-weight: bold;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+/* Bingo Cells */
+.bingo-cell {
+  background: white;
+  min-width: 0;
+  padding: 2px;
+  position: relative;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+/* Hover Effect */
+.bingo-cell:hover {
+  transform: scale(1.02);
+}
+
+/* Marked Cells */
+.bingo-cell.marked {
+  background-color: #ffc107; /* Highlight marked cells */
+  color: #fff;
+}
+
+/* Free Cell */
+.bingo-cell.free {
+  background-color: #6c757d; /* Gray background for FREE */
+  color: #fff;
+  cursor: default;
+}
+
+/* Button inside cell */
+.bingo-cell .c-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* Game Controls */
+.game-controls {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.controls-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.call-number-button {
+  margin-bottom: 20px;
+}
+
+.last-number {
+  text-align: center;
+}
+
+.last-number-value {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.last-number-label {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.error-alert,
+.winner-alert {
+  width: 100%;
+  text-align: center;
+  margin-top: 15px;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.375rem;
+}
+
+.error-alert {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.winner-alert {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .bingo-header {
+    font-size: 0.9rem;
+  }
+
+  .bingo-cell .c-button {
+    font-size: 0.8rem;
+  }
+
+  .timer-badge {
+    width: 25px;
+    height: 25px;
+    font-size: 0.8rem;
+  }
+
+  .bingo-cell {
+    font-size: calc(8px + 1vw) !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .setup-card {
+    padding: 1rem;
+  }
+
+  .player-card {
+    margin-bottom: 1rem;
+  }
+}
+
+/* Adjust card layout in the grid */
+.player-card {
+  height: 100%;
+}
+
+.player-card .card-body {
+  padding: 0.5rem;
+}
+
+/* Update the grid layout for player cards */
+@media (min-width: 768px) {
+  .player-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+}
+
+/* Number Draw Animation Styles */
+.draw-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+.number-draw-container {
+  background: linear-gradient(145deg, #2845ae, #1e3690);
+  border-radius: 20px;
+  padding: 3rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.number-display {
+  position: relative;
+  text-align: center;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Rolling Numbers Animation */
+.rolling-numbers {
+  animation: rollNumbers 0.1s linear infinite;
+}
+
+.rolling-number {
+  font-size: 5rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  line-height: 1;
+}
+
+/* Final Number Display */
+.final-number {
+  animation: numberReveal 0.5s ease-out;
+}
+
+.number-value {
+  font-size: 6rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 
+    0 0 20px rgba(255, 255, 255, 0.5),
+    0 0 40px rgba(255, 255, 255, 0.3);
+  line-height: 1;
+}
+
+.called-label {
+  position: absolute;
+  bottom: 1rem;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Countdown Timer */
+.countdown-timer {
+  background: #ffffff;
+  border-radius: 15px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  min-width: 150px;
+}
+
+.countdown-value {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #2845ae;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.countdown-label {
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.9rem;
+}
+
+/* Animations */
+@keyframes rollNumbers {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50px);
+  }
+}
+
+@keyframes numberReveal {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Glowing Effect */
+.number-draw-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  animation: rotate 10s linear infinite;
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .number-draw-container {
+    padding: 2rem;
+  }
+
+  .rolling-number,
+  .number-value {
+    font-size: 4rem;
+  }
+
+  .countdown-timer {
+    padding: 1rem;
+    min-width: 120px;
+  }
+
+  .countdown-value {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .draw-section {
+    padding: 1rem;
+  }
+
+  .rolling-number,
+  .number-value {
+    font-size: 3rem;
+  }
+}

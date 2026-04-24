@@ -1,0 +1,60 @@
+/* spaced.css */
+.small-font {
+    font-size: 12px; /* Adjust as needed for smaller font */
+  }
+  
+  .inline-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: inherit;
+    width: 100%;
+    padding: 2px 4px;
+    cursor: text;
+  }
+  
+  .inline-input:focus {
+    border-bottom: 1px solid #000; /* Visible focus indicator */
+    background: rgba(0, 0, 0, 0.05); /* Optional: subtle background on focus */
+  }
+
+  /* spaced.css */
+.inline-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: inherit;
+    width: 100%;
+    padding: 2px 4px;
+    cursor: text;
+    /* Ensure the input displays as inline-block to allow proper alignment */
+    display: inline-block;
+  }
+  
+  .inline-input:focus {
+    border-bottom: 1px solid #000; /* Visible focus indicator */
+    background: rgba(0, 0, 0, 0.05); /* Optional: subtle background on focus */
+  }
+
+.wrap-text {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+.inline-input {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.word-wrap {
+  display: inline-block;
+  margin-right: 4px;
+  margin-bottom: 2px;
+}
+
+.experience-text {
+  display: flex;
+  flex-wrap: wrap;
+  width: calc(100% - 25px); /* Adjust based on the width of your bullet point */
+}
