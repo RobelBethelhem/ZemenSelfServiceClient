@@ -5,6 +5,7 @@ import PrivateRoute from './privateRoute'
 
 import { CSpinner, useColorModes } from '@coreui/react'
 import './scss/style.scss'
+import BuildBadge from './components/BuildBadge'
 
 // Containers
 const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
@@ -34,6 +35,7 @@ const App = () => {
 
   return (
     <HashRouter>
+      <BuildBadge />
       <Suspense
         fallback={
           <div className="pt-3 text-center">

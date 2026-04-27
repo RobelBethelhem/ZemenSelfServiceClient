@@ -1,11 +1,29 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
+import { execSync } from 'node:child_process'
 import autoprefixer from 'autoprefixer'
+
+const safeGit = (cmd, fallback = 'unknown') => {
+  try {
+    return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return fallback
+  }
+}
+
+const GIT_BRANCH = safeGit('git rev-parse --abbrev-ref HEAD')
+const GIT_COMMIT = safeGit('git rev-parse --short HEAD')
+const BUILD_TIME = new Date().toISOString()
 
 export default defineConfig(() => {
   return {
     base: './',
+    define: {
+      __APP_BRANCH__: JSON.stringify(GIT_BRANCH),
+      __APP_COMMIT__: JSON.stringify(GIT_COMMIT),
+      __APP_BUILD_TIME__: JSON.stringify(BUILD_TIME),
+    },
     build: {
       outDir: 'build',
     },
