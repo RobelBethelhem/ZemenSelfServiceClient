@@ -195,10 +195,28 @@ const VerifyLetter = () => {
                         <Field label="Reference Number" value={state.data.reference_number || ref} />
                         <Field label="Letter Type" value={state.data.letter_type} />
                         <Field label="Employee Name" value={state.data.employee_name} />
-                        <Field
-                          label="Issued Date"
-                          value={formatDate(state.data.issued_date)}
-                        />
+                        {state.data.status === 'Rejected' ? (
+                          <Field
+                            label="Rejected Date"
+                            value={formatDate(state.data.rejected_date)}
+                          />
+                        ) : state.data.status === 'Revoked' ? (
+                          <>
+                            <Field
+                              label="Issued Date"
+                              value={formatDate(state.data.issued_date)}
+                            />
+                            <Field
+                              label="Revoked Date"
+                              value={formatDate(state.data.revoked_date)}
+                            />
+                          </>
+                        ) : (
+                          <Field
+                            label="Issued Date"
+                            value={formatDate(state.data.issued_date)}
+                          />
+                        )}
                         <div style={{ padding: '10px 0' }}>
                           <div
                             style={{
