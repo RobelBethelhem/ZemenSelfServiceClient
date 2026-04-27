@@ -91,17 +91,29 @@ const VerifyLetter = () => {
     const run = async () => {
       try {
         const response = await fetch(
-          `${API_BASE}/public/verify/${encodeURIComponent(ref)}`,
+          `${API_BASE}/public/verify?ref=${encodeURIComponent(ref)}`,
           { method: 'GET' },
         );
-        const body = await response.json().catch(() => ({}));
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.toLowerCase().includes('application/json');
+        const body = isJson ? await response.json().catch(() => ({})) : null;
         if (cancelled) return;
+        if (!isJson) {
+          // Server returned HTML/text (likely "Cannot GET ..." from Express,
+          // or an IIS/proxy error page). The endpoint is not reachable.
+          setState({ phase: 'error', data: null, error: 'service_unavailable' });
+          return;
+        }
         if (response.ok) {
           setState({ phase: 'done', data: body, error: null });
-        } else if (response.status === 404) {
+        } else if (response.status === 404 && body && body.reason === 'not_found') {
           setState({ phase: 'done', data: { valid: false, reason: 'not_found' }, error: null });
         } else {
-          setState({ phase: 'error', data: null, error: body.reason || 'server_error' });
+          setState({
+            phase: 'error',
+            data: null,
+            error: (body && body.reason) || 'server_error',
+          });
         }
       } catch (err) {
         if (!cancelled) {
@@ -162,6 +174,8 @@ const VerifyLetter = () => {
                     <p style={{ color: '#374151' }}>
                       {state.error === 'network'
                         ? 'We could not reach the verification server. Please check your internet connection and try again.'
+                        : state.error === 'service_unavailable'
+                        ? 'The verification service is currently unavailable. Please try again later, or contact Zemen Bank.'
                         : 'The verification service is temporarily unavailable. Please try again later.'}
                     </p>
                     <Field label="Reference Number" value={ref} />
