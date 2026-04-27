@@ -1882,7 +1882,7 @@ const Guaranty_Letter = () => {
                     }}
                   >
                     <QRCodeWithLogo
-                      url={`https://aps2.zemenbank.com/#/verify/${encodeURIComponent(reference_number || '')}`}
+                      url={`${typeof __VERIFY_URL_BASE__ !== 'undefined' ? __VERIFY_URL_BASE__ : 'https://aps2.zemenbank.com/zbss/#/verify'}/${encodeURIComponent(reference_number || '')}`}
                       size={80}
                       logoUrl={watermarkImage}
                     />
