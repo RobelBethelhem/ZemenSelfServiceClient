@@ -11,6 +11,7 @@ const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
 
 // Pages
 const Login = React.lazy(() => import('./views/pages/login/Login'))
+const VerifyLetter = React.lazy(() => import('./views/pages/verify/VerifyLetter'))
 
 
 const App = () => {
@@ -42,7 +43,8 @@ const App = () => {
       >
         <Routes>
           <Route exact path="/" name="Login Page" element={<Login />} />
-        
+          <Route path="/verify/:ref" name="Verify Letter" element={<VerifyLetter />} />
+
           <Route path="*" name="Home" element={
             <PrivateRoute allowedRoles={['user' ,'admin']} >
             <DefaultLayout />

@@ -1881,8 +1881,8 @@ const Guaranty_Letter = () => {
                       zIndex: 10
                     }}
                   >
-                    <QRCodeWithLogo 
-                      url="https://www.zemenbank.com"
+                    <QRCodeWithLogo
+                      url={`https://aps2.zemenbank.com/#/verify/${encodeURIComponent(reference_number || '')}`}
                       size={80}
                       logoUrl={watermarkImage}
                     />

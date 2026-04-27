@@ -542,7 +542,7 @@ const Embassy_Letter = () => {
                       }}
                     >
                       <QRCodeWithLogo
-                        url="https://www.zemenbank.com"
+                        url={`https://aps2.zemenbank.com/#/verify/${encodeURIComponent(reference_number || '')}`}
                         size={80}
                         logoUrl={watermarkImage}
                       />
