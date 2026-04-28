@@ -14,6 +14,7 @@ import {
   CAlert,
   CBadge,
 } from '@coreui/react';
+import SalaryIncrementLetterPrint from './SalaryIncrementLetterPrint';
 
 const API_BASE = 'https://aps2.zemenbank.com/zbss/api/salary-increment';
 
@@ -342,7 +343,7 @@ const SalaryIncrementUserPage = () => {
       {latest.status === 'Committed' && (
         <CCard className="mb-4 border-success">
           <CCardHeader className="bg-success text-white">
-            <h5 className="mb-0">Commitment Accepted</h5>
+            <h5 className="mb-0">Commitment Accepted — Ready to Print</h5>
           </CCardHeader>
           <CCardBody>
             <p>
@@ -350,10 +351,7 @@ const SalaryIncrementUserPage = () => {
               <strong>{fmtDate(latest.commitment_date)}</strong>. Your salary increment
               letter is now active.
             </p>
-            <CAlert color="info" className="mb-0">
-              The printable letter view is being prepared. The "Print Letter" button will
-              appear here in the next release.
-            </CAlert>
+            <SalaryIncrementLetterPrint letter={latest} onPrinted={() => loadMy()} />
           </CCardBody>
         </CCard>
       )}
