@@ -42,6 +42,7 @@ const MedicalProvider = React.lazy(() => import('./views/admin/MedicalProvider/M
 // Salary Increment & Bonus — independent module (does not share code with other letters).
 const SalaryIncrementImport = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementImport'));
 const SalaryIncrementUserPage = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementUserPage'));
+const SalaryIncrementList = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementList'));
 const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Chat', element: Chat },
@@ -231,6 +232,12 @@ const routes = [
     name: 'SalaryIncrementUser',
     element: SalaryIncrementUserPage,
     roles: ['admin', 'user']
+  },
+  {
+    path: '/admin/salary-increment/list',
+    name: 'SalaryIncrementList',
+    element: SalaryIncrementList,
+    roles: ['admin']
   },
 ]
 

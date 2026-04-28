@@ -30,6 +30,12 @@ const _nav = (userRole) => [
 
   ...(userRole === 'user' ? [
     {
+      component: CNavItem,
+      name: 'Salary Increment & Bonus',
+      to: '/user/salary-increment',
+      icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
+    },
+    {
       component: CNavTitle,
       name: 'User',
     },
@@ -254,6 +260,30 @@ const _nav = (userRole) => [
 
      
       
+    ],
+  },
+
+  {
+    component: CNavGroup,
+    name: 'Salary Increment & Bonus',
+    to: '/admin/salary-increment',
+    icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'My Letter',
+        to: '/user/salary-increment'
+      },
+      {
+        component: CNavItem,
+        name: 'Import Workbook',
+        to: '/admin/salary-increment/import'
+      },
+      {
+        component: CNavItem,
+        name: 'All Letters',
+        to: '/admin/salary-increment/list'
+      },
     ],
   },
 

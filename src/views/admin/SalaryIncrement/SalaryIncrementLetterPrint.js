@@ -142,7 +142,7 @@ const BodyParagraph = ({ letter }) => {
 
 // ----------------------- main component -----------------------
 
-const SalaryIncrementLetterPrint = ({ letter, onPrinted }) => {
+const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) => {
   const accessToken = useSelector((s) => s.user?.accessToken);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -249,10 +249,16 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted }) => {
       printWindow.document.close();
       printWindow.focus();
 
-      // Audit-track the print (best effort) and notify parent so it can refresh state.
-      markPrinted().then(() => {
-        if (typeof onPrinted === 'function') onPrinted();
-      });
+      // Audit-track the print only when trackPrint is true (the default; user flow).
+      // When the admin opens this from the list as a reference copy for HR archives,
+      // trackPrint is false and the user's printed_count is left alone.
+      if (trackPrint) {
+        markPrinted().then(() => {
+          if (typeof onPrinted === 'function') onPrinted();
+        });
+      } else if (typeof onPrinted === 'function') {
+        onPrinted();
+      }
     } catch (e) {
       console.error('Salary letter print error:', e);
       toast.error('Could not print the letter. Please try again.');
