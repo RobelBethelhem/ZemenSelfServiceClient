@@ -38,6 +38,9 @@ const NotificationSettings = React.lazy(()=> import('./views/NotificationSetting
 
 const System_User_Management = React.lazy(() => import('./views/admin/System_User_Management/systemUserManagement'))
 const MedicalProvider = React.lazy(() => import('./views/admin/MedicalProvider/MedicalProvider'));
+
+// Salary Increment & Bonus — independent module (does not share code with other letters).
+const SalaryIncrementImport = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementImport'));
 const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Chat', element: Chat },
@@ -208,6 +211,18 @@ const routes = [
     path: '/admin/chat',
     name: 'Chat',
     element: Chat,
+    roles: ['admin']
+  },
+
+  // ============================================================
+  // Salary Increment & Bonus — additive, independent route.
+  // Removing the two SalaryIncrement entries above and below restores
+  // the previous behavior 1:1.
+  // ============================================================
+  {
+    path: '/admin/salary-increment/import',
+    name: 'SalaryIncrementImport',
+    element: SalaryIncrementImport,
     roles: ['admin']
   },
 ]
