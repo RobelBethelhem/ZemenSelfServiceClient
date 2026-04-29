@@ -158,8 +158,9 @@ const SalaryIncrementImport = () => {
                   max={3000}
                 />
                 <small className="text-medium-emphasis">
-                  Reference numbers are now system-generated (`ZB/HC/INC/00001/<fiscal_year>`),
-                  assigned per letter on first print.
+                  Reference numbers are now system-generated (e.g.{' '}
+                  <code>ZB/HC/INC/00001/{form.fiscal_year}</code>), assigned per letter
+                  on first print.
                 </small>
               </CCol>
             </CRow>
