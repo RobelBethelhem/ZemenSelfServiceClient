@@ -29,7 +29,6 @@ const API_URL = 'https://aps2.zemenbank.com/zbss/api/salary-increment/import';
 
 const initialForm = {
   fiscal_year: new Date().getFullYear(),
-  reference_number: '',
   effective_date: '',
   board_meeting_date: '',
   letter_date: '',
@@ -75,10 +74,6 @@ const SalaryIncrementImport = () => {
       setError('Please select an Excel file (.xlsx) to upload.');
       return;
     }
-    if (!String(form.reference_number).trim()) {
-      setError('Reference number is required.');
-      return;
-    }
     if (!form.effective_date || !form.board_meeting_date || !form.letter_date) {
       setError('All three dates (effective, board meeting, letter) are required.');
       return;
@@ -89,7 +84,6 @@ const SalaryIncrementImport = () => {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('fiscal_year', String(form.fiscal_year));
-      fd.append('reference_number', String(form.reference_number).trim());
       fd.append('effective_date', form.effective_date);
       fd.append('board_meeting_date', form.board_meeting_date);
       fd.append('letter_date', form.letter_date);
@@ -163,20 +157,9 @@ const SalaryIncrementImport = () => {
                   min={2000}
                   max={3000}
                 />
-              </CCol>
-              <CCol md={9}>
-                <CFormLabel htmlFor="reference_number">Reference Number</CFormLabel>
-                <CFormInput
-                  type="text"
-                  id="reference_number"
-                  name="reference_number"
-                  placeholder="e.g. ZB/HC/2198/2025"
-                  value={form.reference_number}
-                  onChange={handleChange}
-                  required
-                />
                 <small className="text-medium-emphasis">
-                  The Board's decision-document reference. Same value renders on every letter in this batch.
+                  Reference numbers are now system-generated (`ZB/HC/INC/00001/<fiscal_year>`),
+                  assigned per letter on first print.
                 </small>
               </CCol>
             </CRow>
@@ -289,10 +272,18 @@ const SalaryIncrementImport = () => {
                   <strong>Fiscal year:</strong> {result.fiscal_year}
                 </p>
                 <p className="mb-2">
-                  <strong>Reference number:</strong> {result.reference_number}
-                </p>
-                <p className="mb-2">
                   <strong>Total imported:</strong> {result.total_imported}
+                  {(result.approved_count !== undefined || result.rejected_count !== undefined) && (
+                    <>
+                      {' — '}
+                      <CBadge color="success" className="me-1">
+                        {result.approved_count || 0} approved
+                      </CBadge>
+                      <CBadge color="warning">
+                        {result.rejected_count || 0} rejected (bonus 0)
+                      </CBadge>
+                    </>
+                  )}
                 </p>
                 <p className="mb-2">
                   <strong>Notifications sent:</strong> {result.notifications_sent || 0}
@@ -321,6 +312,40 @@ const SalaryIncrementImport = () => {
                 </ul>
               </CCol>
             </CRow>
+
+            {result.skipped_no_decision && result.skipped_no_decision.length > 0 && (
+              <>
+                <h6 className="mt-3">
+                  Skipped — no commitment decision (
+                  {result.skipped_no_decision.length})
+                </h6>
+                <CAlert color="warning" className="py-2">
+                  These users were in the workbook but did not record an Approve/Reject
+                  decision during the commitment period. They were skipped. Confirm with HR
+                  whether they should have decided.
+                </CAlert>
+                <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                  <CTable small bordered>
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell>Sheet</CTableHeaderCell>
+                        <CTableHeaderCell>Row</CTableHeaderCell>
+                        <CTableHeaderCell>Domain User</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {result.skipped_no_decision.map((r, i) => (
+                        <CTableRow key={i}>
+                          <CTableDataCell>{r.sheet || '-'}</CTableDataCell>
+                          <CTableDataCell>{r.excel_row || '-'}</CTableDataCell>
+                          <CTableDataCell>{r.domain_user || '-'}</CTableDataCell>
+                        </CTableRow>
+                      ))}
+                    </CTableBody>
+                  </CTable>
+                </div>
+              </>
+            )}
 
             {result.sheet_warnings && result.sheet_warnings.length > 0 && (
               <>

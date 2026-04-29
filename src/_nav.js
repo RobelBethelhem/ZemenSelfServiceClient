@@ -276,6 +276,11 @@ const _nav = (userRole) => [
       },
       {
         component: CNavItem,
+        name: 'Commitment Period',
+        to: '/admin/salary-increment/period'
+      },
+      {
+        component: CNavItem,
         name: 'Import Workbook',
         to: '/admin/salary-increment/import'
       },

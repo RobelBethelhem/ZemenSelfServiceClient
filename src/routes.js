@@ -43,6 +43,7 @@ const MedicalProvider = React.lazy(() => import('./views/admin/MedicalProvider/M
 const SalaryIncrementImport = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementImport'));
 const SalaryIncrementUserPage = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementUserPage'));
 const SalaryIncrementList = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementList'));
+const SalaryIncrementPeriod = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementPeriod'));
 const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Chat', element: Chat },
@@ -237,6 +238,12 @@ const routes = [
     path: '/admin/salary-increment/list',
     name: 'SalaryIncrementList',
     element: SalaryIncrementList,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/salary-increment/period',
+    name: 'SalaryIncrementPeriod',
+    element: SalaryIncrementPeriod,
     roles: ['admin']
   },
 ]

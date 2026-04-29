@@ -9,7 +9,6 @@ import {
   CRow,
   CCol,
   CButton,
-  CFormCheck,
   CSpinner,
   CAlert,
   CBadge,
@@ -18,11 +17,11 @@ import SalaryIncrementLetterPrint from './SalaryIncrementLetterPrint';
 
 const API_BASE = 'https://aps2.zemenbank.com/zbss/api/salary-increment';
 
-const COMMITMENT_TERMS = `By accepting this letter you acknowledge and agree to remain employed with Zemen Bank for a minimum period of six (6) months from the effective date of the salary increment.
+const COMMITMENT_TERMS = `Approving this commitment means you agree to remain employed with Zemen Bank for a minimum period of six (6) months from the effective date of the salary increment.
 
-If you voluntarily resign or otherwise leave the Bank's employment before the end of this six-month period, you may be required to repay all or part of the salary increase and any one-time performance-based bonus received under this letter, in accordance with the Bank's Human Resources policies.
+If you voluntarily leave the Bank within this period after Approving, you may be required to repay all or part of the one-time performance-based bonus paid under your salary letter, in accordance with the Bank's HR policies.
 
-This acceptance is final and is recorded with a timestamp for audit purposes.`;
+You may flip your decision (Approve ↔ Reject) any number of times until the deadline. After the deadline your decision is final, the salary letter is prepared, and Rejected employees receive the salary increment with the bonus set to zero.`;
 
 const fmtDate = (d) => {
   if (!d) return '-';
@@ -39,6 +38,23 @@ const fmtDate = (d) => {
   }
 };
 
+const fmtDateTime = (d) => {
+  if (!d) return '-';
+  try {
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return '-';
+    return dt.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+};
+
 const fmtMoney = (n) => {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return '-';
   return Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -47,96 +63,30 @@ const fmtMoney = (n) => {
 const statusColor = (s) =>
   s === 'Committed' ? 'success' : s === 'Revoked' ? 'danger' : 'warning';
 
-const RegularSummary = ({ letter }) => (
-  <div>
-    <p className="mb-1">
-      From <strong>Birr {fmtMoney(letter.old_salary)}.00</strong> to{' '}
-      <strong>Birr {fmtMoney(letter.new_salary)}.00</strong>
-    </p>
-    {letter.job_grade && (
-      <p className="mb-1">
-        Job Grade <strong>{letter.job_grade}</strong>
-        {letter.step ? (
-          <>
-            {' '}step <strong>{letter.step}</strong>
-          </>
-        ) : null}
-      </p>
-    )}
-    {letter.category === 'Full' && letter.bonus_months != null && (
-      <p className="mb-0">
-        Bonus: <strong>{letter.bonus_months} month{Number(letter.bonus_months) === 1 ? '' : "'s"} salary</strong>
-      </p>
-    )}
-    {letter.category === 'Proportionate' && letter.bonus_months != null && (
-      <p className="mb-0">
-        Bonus: proportionate amount of{' '}
-        <strong>{letter.bonus_months} month{Number(letter.bonus_months) === 1 ? '' : "'s"} salary</strong>
-      </p>
-    )}
-    {letter.category === 'Discipline' &&
-      letter.bonus_months != null &&
-      letter.discipline_pct != null && (
-        <p className="mb-0">
-          Bonus: <strong>{Math.round(letter.discipline_pct * 100)}%</strong> of{' '}
-          <strong>{letter.bonus_months} month{Number(letter.bonus_months) === 1 ? '' : "'s"} salary</strong>
-        </p>
-      )}
-    {letter.category === 'Salary Only' && (
-      <p className="mb-0 text-medium-emphasis">No bonus included for this category.</p>
-    )}
-  </div>
-);
+const decisionColor = (d) =>
+  d === 'Approved' ? 'success' : d === 'Rejected' ? 'warning' : 'secondary';
 
-const PromotionSummary = ({ letter }) => (
-  <div>
-    {(letter.old_job_position || letter.new_job_position) && (
-      <p className="mb-1">
-        Promotion: <strong>{letter.old_job_position || '-'}</strong> →{' '}
-        <strong>{letter.new_job_position || '-'}</strong>
-      </p>
-    )}
-    <p className="mb-1">
-      Salary increase: <strong>Birr {fmtMoney(letter.old_salary)}.00</strong> to{' '}
-      <strong>Birr {fmtMoney(letter.new_salary)}.00</strong>
-    </p>
-    {letter.salary_after_promotion_adjustment != null && (
-      <p className="mb-1">
-        Salary after promotion adjustment:{' '}
-        <strong>Birr {fmtMoney(letter.salary_after_promotion_adjustment)}.00</strong>
-      </p>
-    )}
-    {letter.new_job_grade && (
-      <p className="mb-1">
-        New Job Grade <strong>{letter.new_job_grade}</strong>
-        {letter.new_step ? (
-          <>
-            {' '}step <strong>{letter.new_step}</strong>
-          </>
-        ) : null}
-      </p>
-    )}
-    {letter.bonus_months != null && (
-      <p className="mb-0">
-        Bonus: <strong>{letter.bonus_months} month{Number(letter.bonus_months) === 1 ? '' : "'s"} salary</strong>
-      </p>
-    )}
-  </div>
-);
+// ---------- letter summary block (used inside the letter card) ----------
 
 const LetterSummary = ({ letter }) => {
   const batch = letter.import_batch_id || {};
+  const isRejected = letter.commitment_decision === 'Rejected';
   return (
     <CRow>
       <CCol md={6}>
         <h6>Employee</h6>
         <p>{letter.employee_name}</p>
-
         <h6>Category</h6>
         <p>{letter.category}</p>
-
         <h6>Reference Number</h6>
-        <p>{batch.reference_number || '-'}</p>
+        <p className="font-monospace">
+          {letter.reference_number || (
+            <span className="text-medium-emphasis">
+              ZB/HC/INC/_____/{letter.fiscal_year}{' '}
+              <small>(assigned on first print)</small>
+            </span>
+          )}
+        </p>
       </CCol>
       <CCol md={6}>
         <h6>Important Dates</h6>
@@ -149,58 +99,71 @@ const LetterSummary = ({ letter }) => {
         <p className="mb-3">
           Letter Date: <strong>{fmtDate(batch.letter_date)}</strong>
         </p>
-
-        <h6>Status</h6>
-        <CBadge color={statusColor(letter.status)}>{letter.status}</CBadge>
+        <h6>Commitment</h6>
+        <p>
+          <CBadge color={decisionColor(letter.commitment_decision)}>
+            {letter.commitment_decision || 'Unknown'}
+          </CBadge>
+          {letter.commitment_decided_at && (
+            <small className="text-medium-emphasis ms-2">
+              decided {fmtDate(letter.commitment_decided_at)}
+            </small>
+          )}
+        </p>
       </CCol>
       <CCol xs={12} className="mt-3">
         <h6>Salary Change</h6>
-        {letter.category === 'Promotion' ? (
-          <PromotionSummary letter={letter} />
-        ) : (
-          <RegularSummary letter={letter} />
+        <p className="mb-1">
+          From <strong>Birr {fmtMoney(letter.old_salary)}.00</strong> to{' '}
+          <strong>Birr {fmtMoney(letter.new_salary)}.00</strong>
+        </p>
+        {letter.category === 'Promotion' &&
+          letter.salary_after_promotion_adjustment != null && (
+            <p className="mb-1">
+              Salary after promotion adjustment:{' '}
+              <strong>
+                Birr {fmtMoney(letter.salary_after_promotion_adjustment)}.00
+              </strong>
+            </p>
+          )}
+        {!isRejected && letter.category !== 'Salary Only' && letter.bonus_months != null && (
+          <p className="mb-0">
+            Bonus:{' '}
+            <strong>
+              {letter.category === 'Discipline' && letter.discipline_pct != null
+                ? `${Math.round(letter.discipline_pct * 100)}% of `
+                : letter.category === 'Proportionate'
+                ? 'proportionate amount of '
+                : ''}
+              {letter.bonus_months} month
+              {Number(letter.bonus_months) === 1 ? '' : "'s"} salary
+            </strong>
+          </p>
+        )}
+        {isRejected && (
+          <p className="mb-0 text-warning">
+            Bonus: <strong>0</strong> (commitment was rejected)
+          </p>
+        )}
+        {letter.category === 'Salary Only' && (
+          <p className="mb-0 text-medium-emphasis">No bonus included for this category.</p>
         )}
       </CCol>
     </CRow>
   );
 };
 
-const PreviousLetters = ({ letters }) => (
-  <CCard>
-    <CCardHeader>
-      <h6 className="mb-0">Previous Years ({letters.length})</h6>
-    </CCardHeader>
-    <CCardBody>
-      {letters.map((l, i) => (
-        <div
-          key={l._id}
-          className={i < letters.length - 1 ? 'mb-3 pb-3 border-bottom' : ''}
-        >
-          <div>
-            <strong>FY {l.fiscal_year}</strong>{' '}
-            <CBadge color={statusColor(l.status)}>{l.status}</CBadge>
-          </div>
-          <small className="text-medium-emphasis">
-            {l.category}
-            {l.import_batch_id?.letter_date && (
-              <> · Issued {fmtDate(l.import_batch_id.letter_date)}</>
-            )}
-            {l.commitment_date && <> · Accepted {fmtDate(l.commitment_date)}</>}
-            {l.revoked_date && <> · Revoked {fmtDate(l.revoked_date)}</>}
-          </small>
-        </div>
-      ))}
-    </CCardBody>
-  </CCard>
-);
+// ---------- main user page ----------
 
 const SalaryIncrementUserPage = () => {
   const accessToken = useSelector((s) => s.user?.accessToken);
+
   const [loading, setLoading] = useState(true);
-  const [letters, setLetters] = useState([]);
   const [error, setError] = useState(null);
-  const [agreed, setAgreed] = useState(false);
-  const [committing, setCommitting] = useState(false);
+  const [letters, setLetters] = useState([]);
+  const [period, setPeriod] = useState(null);
+  const [decision, setDecision] = useState(null);
+  const [submitting, setSubmitting] = useState(null); // 'Approved' | 'Rejected' | null
 
   const loadMy = async () => {
     setLoading(true);
@@ -212,10 +175,11 @@ const SalaryIncrementUserPage = () => {
       const body = await resp.json().catch(() => ({}));
       if (!resp.ok) {
         setError(body.message || `Server returned ${resp.status}`);
-        setLetters([]);
         return;
       }
       setLetters(Array.isArray(body.letters) ? body.letters : []);
+      setPeriod(body.period || null);
+      setDecision(body.decision || null);
     } catch (e) {
       setError((e && e.message) || 'Network error');
     } finally {
@@ -226,32 +190,39 @@ const SalaryIncrementUserPage = () => {
   useEffect(() => {
     if (accessToken) loadMy();
     else setLoading(false);
-  }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
 
-  const handleAccept = async (letter) => {
-    if (!letter || !letter._id) return;
-    setCommitting(true);
+  const submitDecision = async (which) => {
+    if (!period) return;
+    setSubmitting(which);
     try {
-      const resp = await fetch(`${API_BASE}/commit`, {
+      const resp = await fetch(`${API_BASE}/decision`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-access-token': accessToken || '',
         },
-        body: JSON.stringify({ id: letter._id }),
+        body: JSON.stringify({
+          fiscal_year: period.fiscal_year,
+          decision: which,
+        }),
       });
       const body = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        toast.error(body.message || `Failed to accept commitment (${resp.status})`);
+        toast.error(body.message || `Failed to record decision (${resp.status})`);
         return;
       }
-      toast.success('Commitment accepted. Your letter is now valid.');
-      setAgreed(false);
+      toast.success(
+        which === 'Approved'
+          ? 'Commitment accepted. You can change this until the deadline.'
+          : 'Commitment rejected. You can change this until the deadline.'
+      );
       await loadMy();
     } catch (e) {
       toast.error((e && e.message) || 'Network error');
     } finally {
-      setCommitting(false);
+      setSubmitting(null);
     }
   };
 
@@ -275,7 +246,16 @@ const SalaryIncrementUserPage = () => {
     );
   }
 
-  if (letters.length === 0) {
+  // Find a letter that matches the active period's fiscal year (if any).
+  // The period may exist (commitment cycle ran) before the letter is imported,
+  // so a missing match is fine — that's the "decision recorded, awaiting HR" state.
+  const activeLetter =
+    period && letters.find((l) => l.fiscal_year === period.fiscal_year);
+
+  const otherLetters = letters.filter((l) => !activeLetter || l._id !== activeLetter._id);
+
+  // ===== State A: no period at all and no letters anywhere =====
+  if (!period && letters.length === 0) {
     return (
       <CCard>
         <CCardHeader>
@@ -283,95 +263,237 @@ const SalaryIncrementUserPage = () => {
         </CCardHeader>
         <CCardBody>
           <p className="text-medium-emphasis mb-0">
-            You have no salary increment letter on file at this time.
+            No commitment cycle has been opened yet, and no salary letter is on file
+            for you. When HR opens the commitment period, you will be able to approve
+            or reject the 6-month commitment here.
           </p>
         </CCardBody>
       </CCard>
     );
   }
 
-  // API returns letters newest first.
-  const latest = letters[0];
-  const others = letters.slice(1);
-
   return (
     <>
       <ToastContainer position="top-right" />
 
-      <CCard className="mb-4">
-        <CCardHeader>
-          <h4 className="mb-0">Salary Increment & Bonus</h4>
-          <small className="text-medium-emphasis">Fiscal Year {latest.fiscal_year}</small>
-        </CCardHeader>
-        <CCardBody>
-          <LetterSummary letter={latest} />
-        </CCardBody>
-      </CCard>
-
-      {latest.status === 'Imported' && (
-        <CCard className="mb-4 border-warning">
-          <CCardHeader className="bg-warning text-dark">
-            <h5 className="mb-0">6-Month Commitment Required</h5>
+      {/* ===== Period banner — always visible when a period exists ===== */}
+      {period && (
+        <CCard className="mb-4">
+          <CCardHeader>
+            <h4 className="mb-0">
+              Salary Increment & Bonus — FY {period.fiscal_year}
+            </h4>
+            <small className="text-medium-emphasis">
+              Commitment window: {fmtDateTime(period.start_date)} →{' '}
+              {fmtDateTime(period.end_date)}
+            </small>
           </CCardHeader>
           <CCardBody>
-            <p style={{ whiteSpace: 'pre-wrap' }}>{COMMITMENT_TERMS}</p>
-            <CFormCheck
-              id="agree-commitment"
-              label="I have read and accept the 6-month commitment terms above."
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-            />
-            <div className="mt-3">
-              <CButton
-                color="primary"
-                disabled={!agreed || committing}
-                onClick={() => handleAccept(latest)}
-              >
-                {committing ? (
-                  <>
-                    <CSpinner size="sm" className="me-2" /> Accepting…
-                  </>
+            {/* Period not started yet */}
+            {!period.has_started && (
+              <CAlert color="info" className="mb-0">
+                The commitment window opens on{' '}
+                <strong>{fmtDateTime(period.start_date)}</strong>. Please return then
+                to record your decision.
+              </CAlert>
+            )}
+
+            {/* Period currently open */}
+            {period.is_open && (
+              <>
+                <p>
+                  The commitment window is <strong>open until {fmtDateTime(period.end_date)}</strong>.
+                  You can record or change your decision freely until the deadline.
+                </p>
+                <CAlert color="light" className="mb-3" style={{ whiteSpace: 'pre-wrap' }}>
+                  {COMMITMENT_TERMS}
+                </CAlert>
+
+                {decision ? (
+                  <CAlert
+                    color={decision.decision === 'Approved' ? 'success' : 'warning'}
+                    className="d-flex align-items-center justify-content-between"
+                  >
+                    <div>
+                      Your current decision:{' '}
+                      <strong>{decision.decision}</strong>
+                      <small className="text-medium-emphasis ms-2">
+                        ({fmtDateTime(decision.decided_at)}, flip
+                        {decision.flips === 1 ? '' : 's'}: {decision.flips})
+                      </small>
+                    </div>
+                    <CButton
+                      color={decision.decision === 'Approved' ? 'warning' : 'success'}
+                      disabled={!!submitting}
+                      onClick={() =>
+                        submitDecision(
+                          decision.decision === 'Approved' ? 'Rejected' : 'Approved'
+                        )
+                      }
+                    >
+                      {submitting ? (
+                        <>
+                          <CSpinner size="sm" className="me-2" /> Saving…
+                        </>
+                      ) : decision.decision === 'Approved' ? (
+                        'Change to Reject'
+                      ) : (
+                        'Change to Approve'
+                      )}
+                    </CButton>
+                  </CAlert>
                 ) : (
-                  'Accept Commitment'
+                  <div className="d-flex" style={{ gap: 12 }}>
+                    <CButton
+                      color="success"
+                      disabled={submitting !== null}
+                      onClick={() => submitDecision('Approved')}
+                    >
+                      {submitting === 'Approved' ? (
+                        <>
+                          <CSpinner size="sm" className="me-2" /> Submitting…
+                        </>
+                      ) : (
+                        'Approve Commitment'
+                      )}
+                    </CButton>
+                    <CButton
+                      color="warning"
+                      disabled={submitting !== null}
+                      onClick={() => submitDecision('Rejected')}
+                    >
+                      {submitting === 'Rejected' ? (
+                        <>
+                          <CSpinner size="sm" className="me-2" /> Submitting…
+                        </>
+                      ) : (
+                        'Reject Commitment'
+                      )}
+                    </CButton>
+                  </div>
                 )}
-              </CButton>
-            </div>
+              </>
+            )}
+
+            {/* Period closed */}
+            {period.has_ended && (
+              <>
+                {decision ? (
+                  <CAlert
+                    color={decision.decision === 'Approved' ? 'success' : 'warning'}
+                    className="mb-0"
+                  >
+                    The commitment window has ended. Your final decision is{' '}
+                    <strong>{decision.decision}</strong>{' '}
+                    <small>({fmtDateTime(decision.decided_at)})</small>.
+                    {!activeLetter && (
+                      <>
+                        {' '}HR is preparing the salary increment letter; it will appear
+                        here once uploaded.
+                      </>
+                    )}
+                  </CAlert>
+                ) : (
+                  <CAlert color="secondary" className="mb-0">
+                    The commitment window has ended and no decision was recorded against
+                    your account. If this is unexpected, please contact HR.
+                  </CAlert>
+                )}
+              </>
+            )}
           </CCardBody>
         </CCard>
       )}
 
-      {latest.status === 'Committed' && (
-        <CCard className="mb-4 border-success">
-          <CCardHeader className="bg-success text-white">
-            <h5 className="mb-0">Commitment Accepted — Ready to Print</h5>
+      {/* ===== Active letter card (if any letter exists for the active FY) ===== */}
+      {activeLetter && (
+        <>
+          <CCard className="mb-4">
+            <CCardHeader>
+              <h5 className="mb-0">
+                Your Salary Increment Letter — FY {activeLetter.fiscal_year}
+              </h5>
+              <small className="text-medium-emphasis">
+                Status: <CBadge color={statusColor(activeLetter.status)}>{activeLetter.status}</CBadge>
+              </small>
+            </CCardHeader>
+            <CCardBody>
+              <LetterSummary letter={activeLetter} />
+            </CCardBody>
+          </CCard>
+
+          {activeLetter.status === 'Committed' && (
+            <CCard className="mb-4 border-success">
+              <CCardHeader className="bg-success text-white">
+                <h5 className="mb-0">Print Your Letter</h5>
+              </CCardHeader>
+              <CCardBody>
+                <p className="mb-3">
+                  Your letter is ready. The reference number is generated by the system
+                  the first time it is printed and remains the same for every print
+                  thereafter.
+                </p>
+                <SalaryIncrementLetterPrint
+                  letter={activeLetter}
+                  onPrinted={() => loadMy()}
+                />
+              </CCardBody>
+            </CCard>
+          )}
+
+          {activeLetter.status === 'Revoked' && (
+            <CCard className="mb-4 border-danger">
+              <CCardHeader className="bg-danger text-white">
+                <h5 className="mb-0">Letter Revoked</h5>
+              </CCardHeader>
+              <CCardBody>
+                <p className="mb-0">
+                  This letter was revoked on{' '}
+                  <strong>{fmtDate(activeLetter.revoked_date)}</strong>.
+                  {activeLetter.revoke_reason && (
+                    <> Reason: {activeLetter.revoke_reason}.</>
+                  )}
+                </p>
+              </CCardBody>
+            </CCard>
+          )}
+        </>
+      )}
+
+      {/* ===== Previous-year letters card ===== */}
+      {otherLetters.length > 0 && (
+        <CCard>
+          <CCardHeader>
+            <h6 className="mb-0">Previous Years ({otherLetters.length})</h6>
           </CCardHeader>
           <CCardBody>
-            <p>
-              You accepted the 6-month commitment on{' '}
-              <strong>{fmtDate(latest.commitment_date)}</strong>. Your salary increment
-              letter is now active.
-            </p>
-            <SalaryIncrementLetterPrint letter={latest} onPrinted={() => loadMy()} />
+            {otherLetters.map((l, i) => (
+              <div
+                key={l._id}
+                className={i < otherLetters.length - 1 ? 'mb-3 pb-3 border-bottom' : ''}
+              >
+                <div>
+                  <strong>FY {l.fiscal_year}</strong>{' '}
+                  <CBadge color={statusColor(l.status)}>{l.status}</CBadge>
+                  {l.commitment_decision && (
+                    <CBadge color={decisionColor(l.commitment_decision)} className="ms-1">
+                      {l.commitment_decision}
+                    </CBadge>
+                  )}
+                </div>
+                <small className="text-medium-emphasis">
+                  {l.category}
+                  {l.reference_number && <> · Ref {l.reference_number}</>}
+                  {l.import_batch_id?.letter_date && (
+                    <> · Issued {fmtDate(l.import_batch_id.letter_date)}</>
+                  )}
+                  {l.revoked_date && <> · Revoked {fmtDate(l.revoked_date)}</>}
+                </small>
+              </div>
+            ))}
           </CCardBody>
         </CCard>
       )}
-
-      {latest.status === 'Revoked' && (
-        <CCard className="mb-4 border-danger">
-          <CCardHeader className="bg-danger text-white">
-            <h5 className="mb-0">Letter Revoked</h5>
-          </CCardHeader>
-          <CCardBody>
-            <p className="mb-0">
-              This letter was revoked on{' '}
-              <strong>{fmtDate(latest.revoked_date)}</strong>.
-              {latest.revoke_reason && <> Reason: {latest.revoke_reason}.</>}
-            </p>
-          </CCardBody>
-        </CCard>
-      )}
-
-      {others.length > 0 && <PreviousLetters letters={others} />}
     </>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
@@ -38,24 +38,28 @@ const fmtLongDate = (d) => {
 };
 
 // ----------------------- per-category text -----------------------
+// `hasBonus` is false when the category is Salary Only OR the user rejected
+// the commitment (bonus_months was forced to 0 at import time). In both
+// cases the letter is structurally a salary-increment-only letter — no
+// bonus subject/paragraph/closing sentence.
 
-const subjectLine = (category) =>
-  category === 'Salary Only'
-    ? 'Salary Increment'
-    : 'Salary Increment and One-time Performance Based Bonus';
+const subjectLine = (hasBonus) =>
+  hasBonus
+    ? 'Salary Increment and One-time Performance Based Bonus'
+    : 'Salary Increment';
 
-const openingPara = (category, boardMeetingDate) => {
+const openingPara = (hasBonus, boardMeetingDate) => {
   const d = fmtLongDate(boardMeetingDate);
-  if (category === 'Salary Only') {
+  if (!hasBonus) {
     return `It gives me a great pleasure to inform you that, the Board of Directors of the Bank, in its meeting held on ${d}, has approved salary increment considering the Bank's overall performance for the fiscal year.`;
   }
   return `It gives me a great pleasure to inform you that, the Board of Directors of the Bank, in its meeting held on ${d}, has approved salary increment and one-time performance based bonus payment considering the Bank's overall performance for the fiscal year and individual performance.`;
 };
 
-const closingPara = (category) =>
-  category === 'Salary Only'
-    ? "Congratulations on the salary increment and I hope to count on your continued effort and dedication as we work towards the realization of the Bank's objectives and strategies in the periods ahead."
-    : "Congratulations on your salary increase and performance based bonus payment. I hope to count on your continued effort and dedication as we work towards the realization of the Bank's objectives and strategies in the periods ahead.";
+const closingPara = (hasBonus) =>
+  hasBonus
+    ? "Congratulations on your salary increase and performance based bonus payment. I hope to count on your continued effort and dedication as we work towards the realization of the Bank's objectives and strategies in the periods ahead."
+    : "Congratulations on the salary increment and I hope to count on your continued effort and dedication as we work towards the realization of the Bank's objectives and strategies in the periods ahead.";
 
 const BodyParagraph = ({ letter }) => {
   const batch = letter.import_batch_id || {};
@@ -64,7 +68,15 @@ const BodyParagraph = ({ letter }) => {
   const newSalary = fmtMoney(letter.new_salary);
   const grade = letter.job_grade || '____';
   const step = letter.step || '____';
-  const bonusMonths = letter.bonus_months !== null && letter.bonus_months !== undefined ? letter.bonus_months : '_____';
+  const bonusMonths =
+    letter.bonus_months !== null && letter.bonus_months !== undefined
+      ? letter.bonus_months
+      : '_____';
+
+  // Same condition as the rest of the letter — no bonus paragraph for
+  // Salary Only or for users who rejected the commitment.
+  const hasBonus =
+    letter.commitment_decision !== 'Rejected' && letter.category !== 'Salary Only';
 
   switch (letter.category) {
     case 'Full':
@@ -72,9 +84,13 @@ const BodyParagraph = ({ letter }) => {
         <p style={{ marginBottom: 14, textAlign: 'justify' }}>
           Accordingly, I am pleased to inform you that effective {effectiveDate}, your
           salary is increased from Birr {oldSalary}.00 to Birr {newSalary}.00 which puts
-          you under Job grade {grade} step {step} of the Bank&apos;s salary scale. In
-          addition, you will be awarded your {bonusMonths} month&apos;s salary as a
-          one-time performance based bonus.
+          you under Job grade {grade} step {step} of the Bank&apos;s salary scale.
+          {hasBonus && (
+            <>
+              {' '}In addition, you will be awarded your {bonusMonths} month&apos;s salary
+              as a one-time performance based bonus.
+            </>
+          )}
         </p>
       );
 
@@ -83,9 +99,13 @@ const BodyParagraph = ({ letter }) => {
         <p style={{ marginBottom: 14, textAlign: 'justify' }}>
           Accordingly, I am pleased to inform you that effective {effectiveDate}, your
           salary is increased from Birr {oldSalary}.00 to Birr {newSalary}.00 which puts
-          you under Job grade {grade} step {step} of the Bank&apos;s salary scale. In
-          addition, you will be awarded proportionate amount of your {bonusMonths}{' '}
-          month&apos;s salary as a one-time performance based bonus.
+          you under Job grade {grade} step {step} of the Bank&apos;s salary scale.
+          {hasBonus && (
+            <>
+              {' '}In addition, you will be awarded proportionate amount of your{' '}
+              {bonusMonths} month&apos;s salary as a one-time performance based bonus.
+            </>
+          )}
         </p>
       );
 
@@ -98,9 +118,13 @@ const BodyParagraph = ({ letter }) => {
         <p style={{ marginBottom: 14, textAlign: 'justify' }}>
           Accordingly, I am pleased to inform you that effective {effectiveDate}, your
           salary is increased from Birr {oldSalary}.00 to Birr {newSalary}.00 which puts
-          you under Job grade {grade} step {step} of the Bank&apos;s salary scale. In
-          addition, you will be awarded {pct} of your {bonusMonths} month&apos;s salary
-          as a one-time performance based bonus.
+          you under Job grade {grade} step {step} of the Bank&apos;s salary scale.
+          {hasBonus && (
+            <>
+              {' '}In addition, you will be awarded {pct} of your {bonusMonths}{' '}
+              month&apos;s salary as a one-time performance based bonus.
+            </>
+          )}
         </p>
       );
     }
@@ -128,8 +152,12 @@ const BodyParagraph = ({ letter }) => {
             Furthermore, due to your promotion, effective your date of release, your
             salary will be further increased to Birr {finalSalary}.00, which puts you
             under job grade {newGrade} step {newStep} of the Bank&apos;s salary scale.
-            In addition, you will be awarded your {bonusMonths} month&apos;s salary as a
-            one-time performance based bonus.
+            {hasBonus && (
+              <>
+                {' '}In addition, you will be awarded your {bonusMonths} month&apos;s
+                salary as a one-time performance based bonus.
+              </>
+            )}
           </p>
         </>
       );
@@ -149,6 +177,13 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
   const [printing, setPrinting] = useState(false);
   const printRef = useRef(null);
 
+  // Local "enriched" copy of the letter so we can splice in a freshly
+  // assigned reference_number before the html2canvas snapshot runs.
+  const [enrichedLetter, setEnrichedLetter] = useState(letter);
+  useEffect(() => {
+    setEnrichedLetter(letter);
+  }, [letter]);
+
   const verifyToken = async () => {
     if (!accessToken) return false;
     try {
@@ -165,9 +200,15 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
     }
   };
 
-  const markPrinted = async () => {
+  // Calls /mark-printed (owner audit + reference) or /admin-prepare-print
+  // (silent reference) depending on trackPrint. Returns reference_number
+  // when the call succeeds; null otherwise.
+  const ensureReference = async () => {
+    const endpoint = trackPrint
+      ? `${API_BASE}/salary-increment/mark-printed`
+      : `${API_BASE}/salary-increment/admin-prepare-print`;
     try {
-      await fetch(`${API_BASE}/salary-increment/mark-printed`, {
+      const resp = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,8 +216,15 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
         },
         body: JSON.stringify({ id: letter._id }),
       });
-    } catch {
-      // best-effort; never block the print flow on this
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        toast.error(body.message || `Failed to prepare letter (${resp.status})`);
+        return null;
+      }
+      return body.reference_number || null;
+    } catch (e) {
+      toast.error((e && e.message) || 'Network error preparing letter');
+      return null;
     }
   };
 
@@ -190,6 +238,16 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
         dispatch({ type: 'clearUser' });
         navigate('/');
         return;
+      }
+
+      // Ensure the letter has a system reference number BEFORE we snapshot,
+      // so the printed image shows the real number rather than a placeholder.
+      const ref = await ensureReference();
+      if (!ref) return;
+      if (ref !== enrichedLetter.reference_number) {
+        setEnrichedLetter((prev) => ({ ...prev, reference_number: ref }));
+        // wait for React to commit + paint the new reference
+        await new Promise((r) => setTimeout(r, 150));
       }
 
       const content = printRef.current;
@@ -249,16 +307,10 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
       printWindow.document.close();
       printWindow.focus();
 
-      // Audit-track the print only when trackPrint is true (the default; user flow).
-      // When the admin opens this from the list as a reference copy for HR archives,
-      // trackPrint is false and the user's printed_count is left alone.
-      if (trackPrint) {
-        markPrinted().then(() => {
-          if (typeof onPrinted === 'function') onPrinted();
-        });
-      } else if (typeof onPrinted === 'function') {
-        onPrinted();
-      }
+      // The reference + audit work happened in ensureReference() above (which
+      // already covered both the user "track print" path and the admin
+      // "reference copy" path). Just notify the parent so it can refresh.
+      if (typeof onPrinted === 'function') onPrinted();
     } catch (e) {
       console.error('Salary letter print error:', e);
       toast.error('Could not print the letter. Please try again.');
@@ -269,8 +321,16 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
 
   if (!letter || !letter.import_batch_id) return null;
 
-  const batch = letter.import_batch_id;
+  const batch = enrichedLetter.import_batch_id || letter.import_batch_id;
   const verifyUrl = `${VERIFY_URL_BASE}/${encodeURIComponent(letter._id)}`;
+  const referenceDisplay =
+    enrichedLetter.reference_number ||
+    `ZB/HC/INC/_____/${enrichedLetter.fiscal_year || letter.fiscal_year || ''}`;
+  // Suppress the bonus paragraph when the user rejected the commitment
+  // (bonus_months was forced to 0 at import time).
+  const showBonusParagraph =
+    enrichedLetter.commitment_decision !== 'Rejected' &&
+    enrichedLetter.category !== 'Salary Only';
 
   return (
     <>
@@ -328,41 +388,41 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
             marginBottom: 14,
           }}
         >
-          <div style={{ color: '#c00', fontWeight: 'bold' }}>{letter.category}</div>
+          <div style={{ color: '#c00', fontWeight: 'bold' }}>{enrichedLetter.category}</div>
           <div>Date: {fmtLongDate(batch.letter_date)}</div>
         </div>
 
-        {/* Reference */}
+        {/* Reference (system-generated; placeholder until first print) */}
         <div style={{ marginBottom: 16 }}>
-          Ref. No.:&nbsp;{batch.reference_number || '________________'}
+          Ref. No.:&nbsp;{referenceDisplay}
         </div>
 
         {/* Recipient */}
         <div style={{ marginBottom: 4 }}>
-          Ato/Woy.&nbsp;&nbsp;{letter.employee_name || '________________'}
+          Ato/Woy.&nbsp;&nbsp;{enrichedLetter.employee_name || '________________'}
         </div>
         <div style={{ marginBottom: 16 }}>Addis Ababa</div>
 
         {/* Subject */}
         <div style={{ marginBottom: 12 }}>
-          <strong>Subject: {subjectLine(letter.category)}</strong>
+          <strong>Subject: {subjectLine(showBonusParagraph)}</strong>
         </div>
 
         {/* Greeting */}
         <div style={{ marginBottom: 12 }}>
-          Dear: {letter.first_name || '____________'}
-          {letter.category === 'Promotion' ? ',' : ''}
+          Dear: {enrichedLetter.first_name || '____________'}
+          {enrichedLetter.category === 'Promotion' ? ',' : ''}
         </div>
 
         {/* Body */}
         <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-          {openingPara(letter.category, batch.board_meeting_date)}
+          {openingPara(showBonusParagraph, batch.board_meeting_date)}
         </p>
 
-        <BodyParagraph letter={letter} />
+        <BodyParagraph letter={enrichedLetter} />
 
         <p style={{ marginBottom: 24, textAlign: 'justify' }}>
-          {closingPara(letter.category)}
+          {closingPara(showBonusParagraph)}
         </p>
 
         <div style={{ marginBottom: 4 }}>Regards,</div>

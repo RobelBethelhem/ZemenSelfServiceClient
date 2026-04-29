@@ -79,6 +79,42 @@ const SalaryIncrementList = () => {
   // --- print modal state ---
   const [printTarget, setPrintTarget] = useState(null);
 
+  // --- export ---
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportDecisions = async () => {
+    if (!fiscalYear) {
+      toast.warn('Pick a Fiscal Year filter first.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const resp = await fetch(
+        `${API_BASE}/decisions/export?fiscal_year=${encodeURIComponent(fiscalYear)}`,
+        { headers: { 'x-access-token': accessToken || '' } }
+      );
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        toast.error(body.message || `Export failed (${resp.status})`);
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `salary-decisions-fy-${fiscalYear}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Decisions export downloaded.');
+    } catch (e) {
+      toast.error((e && e.message) || 'Network error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const fetchList = async () => {
     setLoading(true);
     setError(null);
@@ -186,6 +222,18 @@ const SalaryIncrementList = () => {
             {cell.getValue()}
           </CBadge>
         ),
+      },
+      {
+        accessorKey: 'commitment_decision',
+        header: 'Commitment',
+        size: 120,
+        Cell: ({ cell }) => {
+          const v = cell.getValue();
+          if (!v) return <span className="text-medium-emphasis">-</span>;
+          return (
+            <CBadge color={v === 'Approved' ? 'success' : 'warning'}>{v}</CBadge>
+          );
+        },
       },
       {
         accessorFn: (row) => `${fmtMoney(row.old_salary)} → ${fmtMoney(row.new_salary)}`,
@@ -304,10 +352,33 @@ const SalaryIncrementList = () => {
       <ToastContainer position="top-right" />
       <CCard className="mb-4">
         <CCardHeader>
-          <h4 className="mb-0">Salary Increment Letters</h4>
-          <small className="text-medium-emphasis">
-            All imported letters across fiscal years.
-          </small>
+          <div className="d-flex justify-content-between align-items-center flex-wrap" style={{ gap: 8 }}>
+            <div>
+              <h4 className="mb-0">Salary Increment Letters</h4>
+              <small className="text-medium-emphasis">
+                All imported letters across fiscal years.
+              </small>
+            </div>
+            <CButton
+              color="success"
+              variant="outline"
+              disabled={!fiscalYear || exporting}
+              title={
+                fiscalYear
+                  ? `Download an xlsx of every Approved/Rejected commitment decision for FY ${fiscalYear}`
+                  : 'Pick a Fiscal Year filter below first'
+              }
+              onClick={handleExportDecisions}
+            >
+              {exporting ? (
+                <>
+                  <CSpinner size="sm" className="me-2" /> Exporting…
+                </>
+              ) : (
+                'Export Decisions (xlsx)'
+              )}
+            </CButton>
+          </div>
         </CCardHeader>
         <CCardBody>
           <CRow className="mb-3 g-2">

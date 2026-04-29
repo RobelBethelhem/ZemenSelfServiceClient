@@ -87,12 +87,14 @@ Mongoose enums: `["Pending", "Viewed", "Rejected", "Revoked"]` (Embassy lacks `R
 `routes/rms/Admin/Landing/Candidate_Landing.js`. Branches on role: `user` sees only their own (`domain_user: user.user`), `admin` sees all. Concatenates Experience + Supportive + Guaranty + Embassy + Medical into one array. Special-cases Medical: copies spouse/child names into `employee_first/middle/last_name` so the frontend table displays them. Joins Guaranty rows with `GuarantyTrack` to add `guaranty_count`. Naive XSS scrub drops any doc whose string field contains `<`, `>`, `script`, `iframe`, or `alert`. **The query params (`filters`, `globalFilter`, `sorting`) the frontend sends are ignored** — sorting/filtering happens client-side in `material-react-table`.
 
 ### Public verify — `GET /public/verify`
-`routes/rms/PublicVerify.js`. Searches Experience, Embassy, Guaranty, Supportive collections in parallel for a matching `reference_number`, returns `{ valid, status, letter_type, reference_number, employee_name, issued_date, rejected_date, revoked_date }`. **`valid` is true only when `status === "Viewed"`.**
+`routes/rms/PublicVerify.js`. Single handler bound to **two route patterns** — `["/verify", "/verify/*"]` — and reads `ref` as `(req.query.ref) || req.params[0]`, so both `GET /verify?ref=X` (frontend's actual call shape) and `GET /verify/X` (path-segment style) work.
 
-> **⚠️ Known mismatch to verify before relying on the verify page.** The frontend was recently changed to send `?ref=…` as a **query parameter** (commit `2e81f1b`), but the live backend route is `router.get("/verify/*", ...)` and reads `req.params[0]` — i.e. it expects the ref as a **path segment**. With Express, `GET /verify?ref=ABC` does not match `/verify/*`. Either the production deployment has a newer handler that reads `req.query.ref`, or the verify page silently shows "service_unavailable" in production. If you're touching this flow, confirm the live behaviour first.
+Searches Experience, Embassy, Guaranty, Supportive collections in parallel for a matching `reference_number`. **Plus** a 5th lookup that fires only when `ref` matches `/^[0-9a-fA-F]{24}$/` (i.e. an ObjectId): `SalaryIncrementLetter.findById(ref).populate("import_batch_id")`. That lookup powers the salary-increment QR codes (which encode the letter's `_id` rather than the shared batch reference — see the Salary Increment section below).
+
+For the four classic letters: returns `{ valid, status, letter_type, reference_number, employee_name, issued_date, rejected_date, revoked_date }` with `valid: status === "Viewed"`. For salary letters: same payload shape plus `fiscal_year` and `category`, with `valid: status === "Committed"`.
 
 ### Push notifications
-`web-push` with VAPID keys (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` in env). `utils/rms/pushNotificationService.js` exposes `sendToRole('admin', payload)` (used on new request) and `sendToUser(userId, payload)` (used on status change). Subscriptions live in `PushSubscription` Mongo collection, populated by frontend via `POST /zbss/api/push/subscribe`. **In the current checkout the entire `pushNotificationService.js` body is commented out** — push delivery silently no-ops. Every call site swallows push errors, so request handlers still succeed regardless. Confirm against the running deployment before relying on push.
+`web-push` with VAPID keys (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` in env). `utils/rms/pushNotificationService.js` exposes `sendToRole('admin', payload)`, `sendToUser(userId, payload)`, plus `createNewRequestPayload` / `createStatusUpdatePayload` factories. Subscriptions live in the `PushSubscription` Mongo collection, populated by frontend via `POST /zbss/api/push/subscribe`. The live class implementation starts around line 242 of the file — earlier versions of the same class sit above it as commented-out history (a pattern across this codebase). Every call site wraps push calls in try/catch so push errors never block the request handler.
 
 ### Legend: Mongo `request_type` strings
 The exact strings used in `request_type` fields and route segments. Stay consistent — these flow into the frontend switches:
@@ -103,6 +105,7 @@ The exact strings used in `request_type` fields and route segments. Stay consist
 | Guaranty | `"Guranty"` *(typo is canonical)* | `/guaranty` | `ZB/HC/GUY/00001/25` *(GUY, not GUA)* |
 | Supportive | `"Supportive"` | `/supportive` | `ZB/HC/SUP/00001/25` |
 | Medical | `"Medical"` | `/medical` | `ZB/HC/MED/{SP\|CH}/00001/25` *(extra segment for spouse vs child)* |
+| Salary Increment & Bonus | `"SalaryIncrement"` | `/salary-increment` | **No counter** — reference number is admin-typed at import time and shared across the entire batch. See the Salary Increment section. |
 
 ### Backend models (per letter type)
 
@@ -178,6 +181,140 @@ When the user wants to introduce a new letter (e.g. "Recommendation Letter"), th
 - Casing in `request_type` — match the model default exactly (e.g. `"Recommendation"`, not `"recommendation"`). Frontend switches use `.toLowerCase()` so they don't care, but the backend list endpoint compares with `===`.
 - Prefer correct spelling for new types. The existing `Guranty`/`organazation`/`chid_middle_name` typos are canonical only because changing them would require a backend data migration; don't perpetuate the pattern.
 - Counter prefix is 3 letters (`EXP`, `EMB`, `GUY`, `SUP`, `MED`); pick a new 3-letter code that doesn't collide.
+- **If the new letter is admin-imported instead of user-requested** (i.e. it follows the Salary Increment pattern, not the request → approve → print flow), don't use this checklist. The shape is fundamentally different — see the Salary Increment & Bonus section below for the precedent.
+
+## Salary Increment & Bonus letter (admin-imported, separate flow)
+
+Annual salary letter generated from a workbook the admin imports once a fiscal year. **Structurally different** from the five letters above — there's no user-initiated request and no admin approval gate. The Board of Directors approval happens off-system; the admin import *is* the issuance event. Each user must then accept a 6-month commitment before they can print.
+
+**Independence is intentional.** The whole feature lives in its own subdirectory on each side and does not import from the other five letters. Removing every file under `src/views/admin/SalaryIncrement/` and the `routes/rms/SalaryIncrement.js` mount + the `routes/rms/PublicVerify.js` ObjectId branch would restore the codebase to its pre-feature state.
+
+### Five categories
+
+Each category renders a slightly different letter body. The **Excel sheet name = the category**, matched case-insensitively:
+
+| Category | Distinguishing field(s) | Body paragraph |
+|---|---|---|
+| `Full` | `bonus_months` | "you will be awarded your N month's salary as a one-time performance based bonus." |
+| `Proportionate` | `bonus_months` | "you will be awarded **proportionate amount of** your N month's salary…" |
+| `Discipline` | `bonus_months` + `discipline_pct` (decimal 0–1) | "you will be awarded **75%** of your N month's salary…" |
+| `Salary Only` | — | *no bonus paragraph; subject line drops "and Bonus"* |
+| `Promotion` | `salary_after_promotion_adjustment` + new job position/grade/step + `bonus_months` (decimals OK) | Two paragraphs — the salary increase, then "Furthermore, due to your promotion…" |
+
+### Lifecycle
+
+```
+[Admin imports xlsx]                     [User signs in,            [User clicks Print]
+   ↓                                      accepts 6-month                ↓
+SalaryIncrementImport (per FY)            commitment]              html2canvas → A4 print window
+SalaryIncrementLetter (per user, per FY)         ↓                         ↓
+   status: "Imported"                     status: "Committed"      POST /mark-printed (owner only)
+                                          (only the named                  ↓
+                                          employee can do this)     printed_count + first_printed_at
+                                                                    + last_printed_at updated
+[Admin can revoke at any time]
+   PATCH /revoke
+   status: "Revoked"  ──→  user can no longer print; QR resolves to "Letter Revoked"
+```
+
+`/commit` is **owner-only**; admins cannot accept on someone's behalf. `/mark-printed` is **owner-only** too — admin reference-copy prints from the list page deliberately bypass it (see "Admin reference printing" below).
+
+### Backend models — no counter
+
+`models/rms/SalaryIncrementImport.js`:
+- One row per `fiscal_year` (unique index).
+- Holds `reference_number` (**admin types this in at import time**, e.g. `ZB/HC/2198/2025` — the Board's actual decision-document number), plus `effective_date`, `board_meeting_date`, `letter_date`. All four fields render verbatim on every letter in the batch.
+- No counter file. The reference is shared across the batch, not auto-generated per letter.
+
+`models/rms/SalaryIncrementLetter.js`:
+- One row per `(domain_user, fiscal_year)` (compound unique index). Status enum: `["Imported", "Committed", "Revoked"]`.
+- References the batch via `import_batch_id` (populated when the frontend reads it).
+- Carries category-specific fields: `bonus_months`, `discipline_pct`, all the Promotion fields (`old_/new_job_position`, `_grade`, `_step`, `salary_after_promotion_adjustment`, `promotion_commitment_text`).
+- Audit fields: `commitment_date`, `commitment_user_agent`, `commitment_ip`, `printed_count`, `first_printed_at`, `last_printed_at`, `revoked_by`, `revoked_date`, `revoke_reason`.
+
+### Backend endpoints — mounted at `/zbss/api/salary-increment`
+
+`routes/rms/SalaryIncrement.js`:
+
+| Method | Path | Role | Purpose |
+|---|---|---|---|
+| `POST` | `/import` | admin | Multipart upload. Form fields: `file`, `fiscal_year`, `reference_number`, `effective_date`, `board_meeting_date`, `letter_date`, optional `overwrite=true`. Parses workbook with `xlsx`, validates each row against the `User` collection (case-insensitive on `domain_user`), saves letters, push-notifies each affected user. |
+| `GET` | `/my` | user, admin | Caller's own letters, populated with batch, sorted newest-first. |
+| `POST` | `/commit` | **owner only** | Body `{id}`. Refuses unless status is `Imported` and caller's `domain_user` matches the letter (case-insensitive). Captures user-agent and best-effort IP (reads `x-forwarded-for` for the IIS proxy). |
+| `POST` | `/mark-printed` | **owner only** | Body `{id}`. Refuses unless status is `Committed`. Increments `printed_count`. Admins are intentionally rejected here — see "Admin reference printing". |
+| `GET` | `/list` | admin | `material-react-table`-shaped: `{data, meta:{totalRowCount}}`. Filters: `fiscal_year`, `category`, `status`, `domain_user`, plus a general `q` that does OR-search across `domain_user`, `employee_name`, `first_name`, **and the populated batch's `reference_number`** (extra subquery to find matching batch ids). Pagination capped at 200/page. |
+| `PATCH` | `/revoke` | admin | Body `{id, reason}`. Sets `Revoked` from any state except already-Revoked. |
+
+Mounted in `server.js` near the other `/zbss/api/...` routes — purely additive `app.use("/zbss/api/salary-increment", SalaryIncrement)`.
+
+### Excel parser — `utils/rms/salaryIncrementParser.js`
+
+Pure function `parseSalaryWorkbook(buffer) → {rows, sheet_warnings, row_errors}`. No DB access; the route does the User lookup and inserts on top.
+
+- **Sheet name → category**: case-insensitive match. `"Salary Only (less than 6 months)"` matches the prefix `"salary only"`.
+- **Header row auto-detected**: scans for a row containing `Domain Name` or `Employee Name`. Lets the Salary Only sheet's section-header row above the column headers exist without breaking the parser.
+- **Accepted typos**: the workbook's `Proportinate Amount of Bonus` (missing 'o') is matched alongside the corrected spelling. We honor the existing-spreadsheet typo so the admin doesn't have to retype headers.
+- **`%age` cell coercion**: accepts `0.75` (decimal form) or `75` (percent form ≤100); both normalize to a 0–1 decimal in `discipline_pct`. Rendered as `Math.round(pct * 100)%` in the letter.
+- **Per-row errors collected, never abort**: missing fields, invalid numbers, duplicate domain_user within the workbook all surface as `row_errors[]` entries with `excel_row` line numbers; the import keeps going for valid rows.
+
+### Overwrite semantics
+
+Re-importing the same fiscal year requires `overwrite=true`. On overwrite the route does `deleteMany({fiscal_year})` on **both** `SalaryIncrementLetter` and `SalaryIncrementImport` collections, then creates a fresh batch. The collection-level `superseded`/`superseded_at` fields that earlier drafts had are gone — they were redundant and the unique index on `fiscal_year` made "marking superseded" infeasible.
+
+### QR codes — encode `letter._id`, not `reference_number`
+
+Because the reference number is shared across the entire batch (every employee in FY 2025 has the same `Ref. No.` line on their letter), it can't uniquely identify a letter for verification. So:
+
+- The QR on each letter encodes `${__VERIFY_URL_BASE__}/${letter._id}` — i.e. the Mongo ObjectId.
+- `routes/rms/PublicVerify.js` checks `/^[0-9a-fA-F]{24}$/` on the incoming `ref` and routes it to `SalaryIncrementLetter.findById(ref).populate("import_batch_id")` when it matches. Otherwise the four classic letter collections are searched as before.
+- The verify page renders the displayed reference number from the populated batch (`hit.import_batch_id.reference_number`), not the encoded id.
+
+### Admin reference printing (silent)
+
+Admins can print any user's letter from `/admin/salary-increment/list` for HR archive filing. The Print button on each row opens a CoreUI modal with the rendered letter and a Print button.
+
+**Crucial constraint**: admin prints don't touch `printed_count` or `first/last_printed_at`. The print component (`SalaryIncrementLetterPrint.js`) accepts a `trackPrint` boolean prop:
+
+- **User flow** (`SalaryIncrementUserPage.js`): renders `<… trackPrint />` (defaults to true). After print, POSTs `/mark-printed` and refreshes.
+- **Admin list modal** (`SalaryIncrementList.js`): renders `<… trackPrint={false} />`. Skips the audit POST entirely.
+
+The `/mark-printed` endpoint is owner-only on the server side anyway, so even a misconfigured admin client can't bump the count. The modal also shows a blue notice: *"This is a reference copy for HR archives. It does not count toward the user's print history."*
+
+Print button is disabled when status ≠ `Committed`. Admin cannot print uncommitted drafts (the user hasn't accepted) or revoked letters (no longer valid).
+
+### Frontend file map
+
+| File | Purpose |
+|---|---|
+| `src/views/admin/SalaryIncrement/SalaryIncrementImport.js` | Admin upload form. Drop-zone + 4 date inputs + reference number + overwrite checkbox + result summary. |
+| `src/views/admin/SalaryIncrement/SalaryIncrementUserPage.js` | User commitment + print page. Three states (Imported / Committed / Revoked) + Previous Years history card. |
+| `src/views/admin/SalaryIncrement/SalaryIncrementLetterPrint.js` | The render-and-print component. Five-branch switch for category-specific paragraphs. QR code via `QRCodeSVG` (no shared QR-with-logo wrapper imported from existing letters). `trackPrint` prop gates the audit POST. |
+| `src/views/admin/SalaryIncrement/SalaryIncrementList.js` | Admin oversight: paginated `material-react-table` with filters + general `q` search + Print modal + Revoke modal. |
+
+### Routes (`src/routes.js`)
+
+Three lazy-loaded entries, all appended to the end of the routes array (clearly demarcated by comments) so removing them restores prior behaviour 1:1:
+
+- `/admin/salary-increment/import` — admin only
+- `/user/salary-increment` — admin and user (HR users with their own letter use this same route)
+- `/admin/salary-increment/list` — admin only
+
+### Sidebar (`src/_nav.js`)
+
+Two purely-additive insertions:
+- **User branch**: top-level `CNavItem` "Salary Increment & Bonus" → `/user/salary-increment`, placed above the existing "User" `CNavTitle`.
+- **Admin branch**: a separate top-level `CNavGroup` (sibling to the existing "Admin" group) with three children: "My Letter" → `/user/salary-increment`, "Import Workbook" → `/admin/salary-increment/import`, "All Letters" → `/admin/salary-increment/list`.
+
+`cilCalculator` (already imported, previously unused) used as the icon for both.
+
+### Things that surprised me while building this and would surprise you too
+
+1. **`fiscal_year` unique index conflict on overwrite**: marking the old batch `superseded:true` doesn't free up the unique slot — Mongo's unique index treats `(2025, true)` and `(2025, false)` as conflicting. Solution was to `deleteMany` instead of soft-delete. The `superseded` fields are gone from the schema as a result.
+2. **Admin printing user's letter shouldn't increment count**: the user's `printed_count` is *their* record. Admin's HR-archive print is logically a download-for-reference, not a print event in the user's audit. The `trackPrint` prop encodes this distinction; the backend enforces it via owner-only `/mark-printed`.
+3. **Promotion sample has decimal `bonus_months`** (`3.5`): so `bonus_months` is a `Number`, not an `Int`.
+4. **`Salary Only` Excel sheet has a section-header row above the column headers**: the parser scans for a row containing "Domain Name" / "Employee Name" rather than assuming row 1.
+5. **The `Discipline` category exists** in both Excel and the docx template but wasn't in the original verbal spec — easy to miss.
+6. **Promotion in the Excel sample didn't have a Bonus Amount column** but the docx template does use one (the example said "3.5 month's salary"). This was added back as a required column in the parser; if a future workbook lacks it, the Promotion sheet skips with a warning.
 
 ## Commands
 
@@ -231,6 +368,7 @@ A `BuildBadge` is rendered on any build whose branch is not `main`/`master`/`unk
 - `src/views/admin/Approval` — **admin approval/rejection** (step 3).
 - `src/views/admin/Letters` — **letter render-and-print** views (step 4).
 - `src/views/pages/verify` — **public verification** page (step 5).
+- `src/views/admin/SalaryIncrement` — **independent module** for the Salary Increment & Bonus letter (admin-imported flow). Four files: `SalaryIncrementImport.js` (admin upload), `SalaryIncrementUserPage.js` (user commitment + print), `SalaryIncrementLetterPrint.js` (render + print component), `SalaryIncrementList.js` (admin list + revoke + reference-print modal). Does not import from any of the other letter views — see the Salary Increment section.
 - `src/views/admin/{BingoGame, BingoTv, GoldDiggerGame, GoldDiggerMulGame, Vote, Vote_Stastics, Game, Candidate, Chat, dashbord}` — auxiliary modules unrelated to the letter flow.
 - Many directories contain `*.clone.js`, `*clone2.js`, `aa.js`, `*Endpoint.js`, etc. — working copies / scratch files kept alongside the live module. Treat them as historical unless the task is specifically to clean them up.
 - `src/views/pages/login` and `src/views/pages/verify` — the two unauthenticated pages.
