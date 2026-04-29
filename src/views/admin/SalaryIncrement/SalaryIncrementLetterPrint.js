@@ -4,8 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import { toast } from 'react-toastify';
-import { CButton, CSpinner } from '@coreui/react';
-import zbLogo from '../../../assets/brand/zb.png';
+import { CButton, CSpinner, CFormSwitch } from '@coreui/react';
+
+// Shared letterhead/visual assets — these images are used by the existing
+// letter types too; importing the same files keeps every printed letter
+// visually consistent without duplicating the binaries.
+import logoImage from '../Letters/logo.png';
+import watermarkImage from '../Letters/watermark.png';
+import stampImage from '../Letters/stamp.png';
+import socialImage from '../Letters/social.png';
+import ceoSignature from '../Letters/ceo_signature.png';
 
 /* global __VERIFY_URL_BASE__ */
 const VERIFY_URL_BASE =
@@ -175,6 +183,7 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [printing, setPrinting] = useState(false);
+  const [withoutLetterhead, setWithoutLetterhead] = useState(false);
   const printRef = useRef(null);
 
   // Local "enriched" copy of the letter so we can splice in a freshly
@@ -334,7 +343,10 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
 
   return (
     <>
-      <div className="mb-3 d-flex align-items-center" style={{ gap: 12 }}>
+      <div
+        className="mb-3 d-flex align-items-center"
+        style={{ gap: 16, flexWrap: 'wrap' }}
+      >
         <CButton color="primary" onClick={handlePrint} disabled={printing}>
           {printing ? (
             <>
@@ -344,6 +356,15 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
             'Print Letter'
           )}
         </CButton>
+
+        <CFormSwitch
+          id="salaryLetterheadToggle"
+          label="Without Letterhead"
+          checked={withoutLetterhead}
+          onChange={(e) => setWithoutLetterhead(e.target.checked)}
+          style={{ fontSize: 14 }}
+        />
+
         {letter.printed_count > 0 && (
           <small className="text-medium-emphasis">
             Previously printed {letter.printed_count} time
@@ -352,104 +373,232 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
         )}
       </div>
 
-      {/* Captured by html2canvas. Sized to A4. */}
+      {/* A4-sized printable area — captured by html2canvas. */}
       <div
         ref={printRef}
         style={{
           width: '210mm',
           minHeight: '297mm',
-          padding: '20mm 22mm',
+          height: '297mm',
+          position: 'relative',
+          overflow: 'hidden',
           background: '#ffffff',
           color: '#000',
-          fontFamily: '"Times New Roman", Times, serif',
-          fontSize: 12,
-          lineHeight: 1.5,
+          fontFamily: 'Calibri, "Times New Roman", Times, serif',
+          fontSize: 12.5,
+          lineHeight: 1.55,
           boxSizing: 'border-box',
           margin: '0 auto',
-          display: 'flex',
-          flexDirection: 'column',
         }}
       >
-        {/* Letterhead logo */}
-        <div style={{ textAlign: 'center', marginBottom: 18 }}>
-          <img
-            src={zbLogo}
-            alt="Zemen Bank"
-            style={{ height: 70, objectFit: 'contain' }}
+        {/* Red vertical bar — letterhead only */}
+        {!withoutLetterhead && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 30,
+              left: 30,
+              bottom: 30,
+              width: 4,
+              backgroundColor: 'red',
+            }}
           />
-        </div>
+        )}
 
-        {/* Category label (red) + Date (right) */}
+        {/* Watermark — letterhead only */}
+        {!withoutLetterhead && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundImage: `url(${watermarkImage})`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: '33% 40%',
+              backgroundSize: '150%',
+              opacity: 0.07,
+              pointerEvents: 'none',
+              transform: 'rotate(-1deg)',
+            }}
+          />
+        )}
+
+        {/* Logo top-left — letterhead only */}
+        {!withoutLetterhead && (
+          <img
+            src={logoImage}
+            alt="Logo"
+            style={{
+              position: 'absolute',
+              top: 60,
+              left: 50,
+              width: 180,
+              height: 'auto',
+            }}
+          />
+        )}
+
+        {/* Body wrapper. We pad enough to clear the logo block and the
+            footer/QR area so the body never collides with letterhead chrome. */}
         <div
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'baseline',
-            marginBottom: 14,
+            position: 'relative',
+            paddingLeft: '22mm',
+            paddingRight: '22mm',
+            paddingTop: withoutLetterhead ? '20mm' : '50mm',
+            paddingBottom: '40mm',
+            height: '100%',
+            boxSizing: 'border-box',
           }}
         >
-          <div style={{ color: '#c00', fontWeight: 'bold' }}>{enrichedLetter.category}</div>
-          <div>Date: {fmtLongDate(batch.letter_date)}</div>
-        </div>
+          {/* Date + Ref. No. — both right-aligned to mirror existing letters */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              marginBottom: 18,
+            }}
+          >
+            <div className="fw-bold">
+              <span className="me-2">Date:</span>
+              {fmtLongDate(batch.letter_date)}
+            </div>
+            <div className="fw-bold">
+              <span className="me-2">Ref. No.:</span>
+              {referenceDisplay}
+            </div>
+          </div>
 
-        {/* Reference (system-generated; placeholder until first print) */}
-        <div style={{ marginBottom: 16 }}>
-          Ref. No.:&nbsp;{referenceDisplay}
-        </div>
+          {/* Recipient block — Addis Ababa underlined per house style */}
+          <div style={{ marginBottom: 4 }}>
+            Ato/Woy.&nbsp;&nbsp;
+            {enrichedLetter.employee_name || '________________'}
+          </div>
+          <div style={{ marginBottom: 18, textDecoration: 'underline' }}>
+            Addis Ababa
+          </div>
 
-        {/* Recipient */}
-        <div style={{ marginBottom: 4 }}>
-          Ato/Woy.&nbsp;&nbsp;{enrichedLetter.employee_name || '________________'}
-        </div>
-        <div style={{ marginBottom: 16 }}>Addis Ababa</div>
+          {/* Subject — underlined per house style */}
+          <div style={{ marginBottom: 14, textDecoration: 'underline' }}>
+            <strong>Subject: {subjectLine(showBonusParagraph)}</strong>
+          </div>
 
-        {/* Subject */}
-        <div style={{ marginBottom: 12 }}>
-          <strong>Subject: {subjectLine(showBonusParagraph)}</strong>
-        </div>
+          {/* Greeting */}
+          <div style={{ marginBottom: 12 }}>
+            Dear: {enrichedLetter.first_name || '____________'}
+            {enrichedLetter.category === 'Promotion' ? ',' : ''}
+          </div>
 
-        {/* Greeting */}
-        <div style={{ marginBottom: 12 }}>
-          Dear: {enrichedLetter.first_name || '____________'}
-          {enrichedLetter.category === 'Promotion' ? ',' : ''}
-        </div>
+          {/* Body */}
+          <p style={{ marginBottom: 14, textAlign: 'justify' }}>
+            {openingPara(showBonusParagraph, batch.board_meeting_date)}
+          </p>
 
-        {/* Body */}
-        <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-          {openingPara(showBonusParagraph, batch.board_meeting_date)}
-        </p>
+          <BodyParagraph letter={enrichedLetter} />
 
-        <BodyParagraph letter={enrichedLetter} />
+          <p style={{ marginBottom: 24, textAlign: 'justify' }}>
+            {closingPara(showBonusParagraph)}
+          </p>
 
-        <p style={{ marginBottom: 24, textAlign: 'justify' }}>
-          {closingPara(showBonusParagraph)}
-        </p>
+          <div style={{ marginBottom: 4 }}>Regards,</div>
 
-        <div style={{ marginBottom: 4 }}>Regards,</div>
-        <div style={{ marginTop: 28 }}>
-          <strong>Dereje Zebene</strong>
-        </div>
-        <div style={{ marginBottom: 20 }}>President/CEO</div>
+          {/* CEO signature image. Sits between "Regards," and the printed name. */}
+          <img
+            src={ceoSignature}
+            alt="CEO signature"
+            style={{ width: 160, height: 'auto', marginTop: 4, marginBottom: 0 }}
+          />
+          <div>
+            <strong>Dereje Zebene</strong>
+          </div>
+          <div style={{ marginBottom: 20 }}>President/CEO</div>
 
-        {/* Footer: CC list (left) + QR (right) */}
-        <div
-          style={{
-            marginTop: 'auto',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
-          }}
-        >
-          <div style={{ flex: 1 }}>
-            <div style={{ marginBottom: 4 }}>CC:</div>
+          {/* Stamp — overlaps the signature area on the right; letterhead only */}
+          {!withoutLetterhead && (
+            <img
+              src={stampImage}
+              alt="Stamp"
+              style={{
+                position: 'absolute',
+                left: '22mm',
+                marginLeft: 180,
+                marginTop: -110,
+                width: 130,
+                height: 'auto',
+                zIndex: 6,
+              }}
+            />
+          )}
+
+          {/* CC list */}
+          <div style={{ marginTop: 8 }}>
+            <div style={{ marginBottom: 2 }}>CC:</div>
             <div>Finance &amp; Investors Relation Department</div>
             <div>PMES Department</div>
           </div>
-          <div style={{ textAlign: 'center' }} data-qr-code>
-            <QRCodeSVG value={verifyUrl} size={100} level="M" includeMargin={false} />
-            <div style={{ fontSize: 9, marginTop: 4, color: '#444' }}>Scan to verify</div>
+        </div>
+
+        {/* QR — bottom-right of the page, always present */}
+        <div
+          data-qr-code
+          style={{
+            position: 'absolute',
+            right: 50,
+            bottom: withoutLetterhead ? 30 : 130,
+            textAlign: 'center',
+            zIndex: 10,
+          }}
+        >
+          <QRCodeSVG value={verifyUrl} size={90} level="M" includeMargin={false} />
+          <div style={{ fontSize: 9, marginTop: 4, color: '#444' }}>
+            Scan to verify
           </div>
         </div>
+
+        {/* Bottom footer (contact info + social + tagline) — letterhead only */}
+        {!withoutLetterhead && (
+          <div
+            className="fst-italic"
+            style={{
+              position: 'absolute',
+              bottom: 20,
+              left: 50,
+              right: 50,
+              fontSize: 10,
+              lineHeight: 1.35,
+            }}
+          >
+            <div style={{ fontWeight: 'bold' }}>
+              ዘመን ባንክ አ.ማ. / Zemen Bank S.C.
+            </div>
+            <div>Ras Abebe Aregay St.</div>
+            <div>P.O.Box 1212 Addis Ababa, Ethiopia</div>
+            <div>SWIFT Code: ZEMEETAA</div>
+            <div>Call Center 6500</div>
+            <div>info@zemenbank.com</div>
+            <div style={{ color: 'red', fontWeight: 'bold' }}>www.zemenbank.com</div>
+            <div
+              style={{
+                marginTop: 6,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <img
+                src={socialImage}
+                alt="social"
+                style={{ width: 110, height: 'auto' }}
+              />
+              <span style={{ color: 'red', fontWeight: 'bold' }}>
+                DRIVING THE FUTURE FINANCIAL SERVICES EXPERIENCE
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

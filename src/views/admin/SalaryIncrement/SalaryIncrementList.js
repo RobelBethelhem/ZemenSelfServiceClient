@@ -82,6 +82,33 @@ const SalaryIncrementList = () => {
   // --- export ---
   const [exporting, setExporting] = useState(false);
 
+  // Pre-fill the fiscal-year filter from the latest commitment period so the
+  // Export button is usable as soon as the admin lands on the page (instead
+  // of being inactive until they manually type a year).
+  useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/period`, {
+          headers: { 'x-access-token': accessToken },
+        });
+        const body = await resp.json().catch(() => ({}));
+        if (cancelled) return;
+        if (resp.ok && body.period && body.period.fiscal_year) {
+          setFiscalYear(String(body.period.fiscal_year));
+        } else {
+          setFiscalYear(String(new Date().getFullYear()));
+        }
+      } catch {
+        if (!cancelled) setFiscalYear(String(new Date().getFullYear()));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
   const handleExportDecisions = async () => {
     if (!fiscalYear) {
       toast.warn('Pick a Fiscal Year filter first.');
@@ -366,7 +393,7 @@ const SalaryIncrementList = () => {
               title={
                 fiscalYear
                   ? `Download an xlsx of every Approved/Rejected commitment decision for FY ${fiscalYear}`
-                  : 'Pick a Fiscal Year filter below first'
+                  : 'Type a Fiscal Year in the filter below first'
               }
               onClick={handleExportDecisions}
             >
@@ -374,6 +401,8 @@ const SalaryIncrementList = () => {
                 <>
                   <CSpinner size="sm" className="me-2" /> Exporting…
                 </>
+              ) : fiscalYear ? (
+                `Export Decisions FY ${fiscalYear} (xlsx)`
               ) : (
                 'Export Decisions (xlsx)'
               )}
