@@ -26,9 +26,12 @@ import socialImage from '../Letters/social.png';
 
 const API_BASE = 'https://aps2.zemenbank.com/zbss/api/salary-increment';
 
-// Short summary shown inline next to the Accept / Decline buttons. Sourced
-// from the bank's "Bonus Payment Agreement — Dialogue Box" copy.
-const COMMITMENT_TERMS = `Accepting this commitment means you agree to remain employed with Zemen Bank for a minimum period of six (6) months from the effective date of the salary increment. If you voluntarily leave the Bank within this period after Accepting, you may be required to repay all or part of the one-time performance-based bonus paid under your salary letter, in accordance with the Bank's HR policies. You may change your decision (Decline ↔ Accept) within the deadline.`;
+// Short acknowledgment shown inline next to the Accept / Decline buttons —
+// written in the first person to match the legal language of the agreement
+// the user is attesting to. The FY label is filled dynamically from the
+// active commitment period.
+const buildCommitmentAcknowledgment = (fyLabel) =>
+  `I acknowledge the Bank's policy requiring six (6) months of obligatory service to remain eligible for the FY ${fyLabel} Bonus Payment. This commitment becomes effective upon the signing of this agreement. I hereby confirm my voluntary agreement to these terms to proceed with the processing of my bonus. You may change your decision (Decline ↔ Accept) within the deadline.`;
 
 // Full ZB Obligatory Service Agreement — shown in the "View Full Agreement"
 // modal and rendered into the downloadable PDF. Same text the bank publishes
@@ -68,15 +71,17 @@ const buildAgreementSections = ({ employeeInfo, period, decision }) => {
     ? decidedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     : '[Pending acceptance]';
   // Effective date = July 1 of (fiscal_year - 1) — start of the Ethiopian
-  // fiscal year. The backend sends this on period.effective_date already
-  // formatted as ISO; we just localise.
-  const effective = period && period.effective_date
-    ? new Date(period.effective_date).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '[Auto-generated upon ESS Acceptance]';
+  // fiscal year. The backend sends this on period.effective_date as ISO,
+  // but we also compute it locally from period.fiscal_year as a safety net
+  // in case the response is missing the field (older backend, mid-deploy).
+  const fmtEffective = (d) =>
+    d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  let effective = '[Auto-generated upon ESS Acceptance]';
+  if (period && period.effective_date) {
+    effective = fmtEffective(new Date(period.effective_date));
+  } else if (period && period.fiscal_year) {
+    effective = fmtEffective(new Date(Date.UTC(period.fiscal_year - 1, 6, 1)));
+  }
 
   return [
     { type: 'p', text: 'This Obligatory Service Agreement ("Agreement") is made between:' },
@@ -411,7 +416,7 @@ const SalaryIncrementUserPage = () => {
                   You can record or change your decision freely until the deadline.
                 </p>
                 <CAlert color="light" className="mb-2">
-                  {COMMITMENT_TERMS}
+                  {buildCommitmentAcknowledgment(fiscalYearLabel(period))}
                 </CAlert>
                 <div className="mb-3">
                   <CButton
