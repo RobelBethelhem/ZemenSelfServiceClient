@@ -289,6 +289,11 @@ const _nav = (userRole) => [
         name: 'All Letters',
         to: '/admin/salary-increment/list'
       },
+      {
+        component: CNavItem,
+        name: 'Analytics',
+        to: '/admin/salary-increment/analytics'
+      },
     ],
   },
 
