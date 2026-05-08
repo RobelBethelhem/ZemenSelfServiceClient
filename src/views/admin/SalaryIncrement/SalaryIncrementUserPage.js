@@ -38,9 +38,12 @@ const FULL_AGREEMENT_TITLE = 'ZEMEN BANK S.C.';
 const FULL_AGREEMENT_SUBTITLE = 'OBLIGATORY SERVICE AGREEMENT FOR BONUS PAYMENT';
 const AGREEMENT_VERSION = 'v1.0';
 
-// Renders the Ethiopian fiscal-year label "YYYY/YY" — FY 2026 (July 2025
-// to June 2026) prints as "2025/26", FY 2027 as "2026/27", etc.
-const fiscalYearLabel = (fy) => {
+// Renders the Ethiopian fiscal-year label "YYYY/YY". The backend's /my
+// response now carries this as period.fiscal_year_label; we only fall back
+// to client-side computation if the field is missing (e.g. an older backend).
+const fiscalYearLabel = (period) => {
+  if (period && period.fiscal_year_label) return period.fiscal_year_label;
+  const fy = period && period.fiscal_year;
   if (!fy || Number.isNaN(Number(fy))) return '____/__';
   const n = Number(fy);
   return `${n - 1}/${(n % 100).toString().padStart(2, '0')}`;
@@ -56,7 +59,7 @@ const buildAgreementSections = ({ employeeInfo, period, decision }) => {
         .join(' ') || '[EMPLOYEE NAME]'
     : '[EMPLOYEE NAME]';
   const employeeId = (employeeInfo && employeeInfo.employee_id) || '[Employee ID]';
-  const fyLabel = fiscalYearLabel(period && period.fiscal_year);
+  const fyLabel = fiscalYearLabel(period);
   const decidedAt = decision && decision.decided_at ? new Date(decision.decided_at) : null;
   const acceptedDate = decidedAt
     ? decidedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
