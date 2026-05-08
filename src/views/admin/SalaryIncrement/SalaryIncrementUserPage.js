@@ -67,7 +67,16 @@ const buildAgreementSections = ({ employeeInfo, period, decision }) => {
   const acceptedTime = decidedAt
     ? decidedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     : '[Pending acceptance]';
-  const effective = decidedAt ? acceptedDate : '[Auto-generated upon ESS Acceptance]';
+  // Effective date = July 1 of (fiscal_year - 1) — start of the Ethiopian
+  // fiscal year. The backend sends this on period.effective_date already
+  // formatted as ISO; we just localise.
+  const effective = period && period.effective_date
+    ? new Date(period.effective_date).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '[Auto-generated upon ESS Acceptance]';
 
   return [
     { type: 'p', text: 'This Obligatory Service Agreement ("Agreement") is made between:' },
