@@ -97,10 +97,32 @@ const MedicalSlip = () => {
     viewed_date,
     TimeStamp,
     domain_user,
-    viewed_by
+    viewed_by,
+    // HRIS-sourced employee name parts (preferred over domain_user split).
+    // Candidate_Landing copies the canonical names from the Medical doc
+    // into actual_employee_* so they survive the spouse/child override
+    // used by the admin table.
+    actual_employee_first_name,
+    actual_employee_middle_name,
+    actual_employee_last_name,
+    employee_first_name: rawEmployeeFirstName,
+    employee_middle_name: rawEmployeeMiddleName,
+    employee_last_name: rawEmployeeLastName,
   } = rowData;
 
-  const patientName = is_Spouse 
+  // Prefer HRIS-derived employee name parts; fall back to splitting
+  // domain_user only if the new fields are not yet present (legacy rows
+  // saved before this feature shipped).
+  const employeeFullName = (() => {
+    const first = actual_employee_first_name || rawEmployeeFirstName || '';
+    const middle = actual_employee_middle_name || rawEmployeeMiddleName || '';
+    const last = actual_employee_last_name || rawEmployeeLastName || '';
+    const joined = `${first} ${middle} ${last}`.trim();
+    if (joined) return joined;
+    return (domain_user || '').split('.').join(' ');
+  })();
+
+  const patientName = is_Spouse
     ? `${spouse_first_name || ''} ${spouse_middle_name || ''} ${spouse_last_name || ''}`
     : `${child_first_name || ''} ${chid_middle_name || ''} ${child_last_name || ''}`;
 
@@ -341,14 +363,14 @@ const MedicalSlip = () => {
 
                     <div style={{ marginBottom: '8px' }}>
                       <span style={{ fontWeight: 'bold' }}>Employee's Name:</span>
-                      <span style={{ 
-                        borderBottom: '1px solid #000', 
+                      <span style={{
+                        borderBottom: '1px solid #000',
                         display: 'inline-block',
                         minWidth: '250px',
                         marginLeft: '10px',
                         paddingBottom: '2px'
                       }}>
-                        {domain_user.replace('.', ' ')}
+                        {employeeFullName}
                       </span>
                     </div>
                   </div>

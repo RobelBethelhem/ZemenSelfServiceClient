@@ -88,7 +88,7 @@ function useApproveRequest(refetch) {
   const accessToken = useSelector((state) => state.user.accessToken);
   
   return useMutation({
-    mutationFn: async ({ id, request_type }) => {
+    mutationFn: async ({ id, request_type, approval_date }) => {
       let endpoint = '';
       let bodyData = {};
 
@@ -164,6 +164,11 @@ function useApproveRequest(refetch) {
             employee_description: '',
             name_of_supervisor: '',
           };
+          // Optional admin-selected approval date for back-dating; backend
+          // validates that it is not in the future. Send only when provided.
+          if (approval_date) {
+            bodyData.approval_date = approval_date;
+          }
           break;
 
         default:

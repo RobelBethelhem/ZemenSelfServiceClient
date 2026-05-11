@@ -5629,6 +5629,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import BlockIcon from '@mui/icons-material/Block';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 
 import {
@@ -6210,6 +6212,11 @@ const ConfirmationModal = ({
   confirmText,
   confirmColor,
   icon: Icon,
+  // Medical-only: when true, render a date picker for the approval date.
+  // Back-dating is allowed; future dates are disabled. Default is today.
+  showApprovalDate = false,
+  approvalDate,
+  setApprovalDate,
 }) => {
   return (
     <Dialog
@@ -6233,6 +6240,26 @@ const ConfirmationModal = ({
       </DialogTitle>
       <DialogContent>
         <Typography variant="body1">{message}</Typography>
+        {showApprovalDate && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+              Approval Date
+            </Typography>
+            <DatePicker
+              value={approvalDate}
+              onChange={(newValue) => setApprovalDate && setApprovalDate(newValue)}
+              maxDate={dayjs()}
+              format="DD/MM/YYYY"
+              slotProps={{
+                textField: {
+                  size: 'small',
+                  fullWidth: true,
+                  helperText: 'Defaults to today. Back-dating is allowed; future dates are not.',
+                },
+              }}
+            />
+          </Box>
+        )}
       </DialogContent>
       <DialogActions sx={{ padding: '16px' }}>
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -6460,6 +6487,9 @@ const Example = () => {
 
   // New state for rejection reason
   const [rejectionReason, setRejectionReason] = useState('');
+
+  // Medical-only: admin-selected approval date (back-dating allowed, no future).
+  const [approvalDate, setApprovalDate] = useState(dayjs());
 
   const [openRevokeModal, setOpenRevokeModal] = useState(false);
   const [selectedGuarantyRows, setSelectedGuarantyRows] = useState([]);
@@ -6711,12 +6741,22 @@ const Example = () => {
 
   const handleApproveConfirm = async () => {
     if (selectedRow) {
+      const requestType = selectedRow.original.request_type;
+      const isMedical = (requestType || '').toLowerCase() === 'medical';
+      // Only pass approval_date for medical; backend ignores otherwise.
+      const approvalDateIso =
+        isMedical && approvalDate && approvalDate.isValid && approvalDate.isValid()
+          ? approvalDate.toISOString()
+          : undefined;
       await approveRequest({
         id: selectedRow.original.id,
-        request_type: selectedRow.original.request_type,
+        request_type: requestType,
+        approval_date: approvalDateIso,
       });
       setOpenApproveModal(false);
       setSelectedRow(null);
+      // Reset back to today for the next approval.
+      setApprovalDate(dayjs());
     }
   };
 
@@ -6804,6 +6844,7 @@ const Example = () => {
                         variant="contained"
                         color="success"
                         onClick={() => {
+                          setApprovalDate(dayjs());
                           setOpenApproveModal(true);
                           setSelectedRow(row);
                         }}
@@ -7152,6 +7193,11 @@ const Example = () => {
         confirmText={isApprovingRequest ? 'Approving...' : 'Approve'}
         confirmColor="#4CAF50"
         icon={CheckCircle}
+        showApprovalDate={
+          (selectedRow?.original?.request_type || '').toLowerCase() === 'medical'
+        }
+        approvalDate={approvalDate}
+        setApprovalDate={setApprovalDate}
       />
 
       {/* Updated Rejection Modal with Reason Field */}
