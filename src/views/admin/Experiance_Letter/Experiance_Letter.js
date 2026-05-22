@@ -18,6 +18,7 @@ import { cilCheckCircle, cilX, cilUser, cilBuilding, cilPencil, cilLocationPin }
 import CIcon from '@coreui/icons-react';
 
 import { useDispatch, useSelector } from 'react-redux';
+import { API_BASE } from '../../../api/base';
 
 const InfiniteScrollText = ({ text }) => {
   const controls = useAnimationControls();
@@ -119,7 +120,7 @@ const Experiance_Letter = () => {
     setProgress(0);
   
     try {
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/experiance/register_request_experiance', {
+      const response = await fetch(`${API_BASE}/experiance/register_request_experiance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

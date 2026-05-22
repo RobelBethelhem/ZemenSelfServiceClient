@@ -25,6 +25,7 @@ import nuru_signature from './nuru_signature.png';
 import { useDispatch, useSelector } from 'react-redux';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { API_BASE } from '../../../api/base';
 
 const FlexContainer = ({ children, style }) => (
   <div className="d-flex flex-wrap align-items-baseline mb-2" style={style}>
@@ -113,7 +114,7 @@ const Supportive_Letter = () => {
 
     setIsVerifying(true);
     try {
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/verify-token', {
+      const response = await fetch(`${API_BASE}/verify-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

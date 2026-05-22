@@ -10,6 +10,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs'; // Add this import at the top
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { API_BASE } from '../../../api/base';
 
 const COLORS = {
   Pending: '#FFA500',
@@ -48,7 +49,7 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const response = await fetch("https://aps2.zemenbank.com/zbss/api/rms/admin/landing/get_candidate", {
+      const response = await fetch(`${API_BASE}/rms/admin/landing/get_candidate`, {
         headers: {
           'Content-Type': 'application/json',
           'x-access-token': accessToken,

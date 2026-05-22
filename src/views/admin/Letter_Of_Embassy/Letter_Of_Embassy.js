@@ -17,6 +17,7 @@ import {
 import { cilCheckCircle, cilX, cilUser, cilBuilding, cilPencil } from '@coreui/icons';
 import CIcon from '@coreui/icons-react';
 import { useDispatch, useSelector } from 'react-redux';
+import { API_BASE } from '../../../api/base';
 
 const InfiniteScrollText = ({ text }) => {
   const controls = useAnimationControls();
@@ -134,7 +135,7 @@ const EmbassyLetterForm = () => {
     setProgress(0);
   
     try {
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/embassy/register_request_embassy', {
+      const response = await fetch(`${API_BASE}/embassy/register_request_embassy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

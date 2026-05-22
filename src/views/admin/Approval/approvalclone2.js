@@ -41,6 +41,7 @@ import { CheckCircle, XCircle, X as CloseIcon } from 'lucide-react';
 import  { useApproveRequest, useRejectRequest } from './ApprovalEndpoint'
 import PreviewIcon from '@mui/icons-material/Preview';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE } from '../../../api/base';
 
 
 
@@ -641,7 +642,7 @@ const Example = () => {
   } = useQuery({
     queryKey: ['table-data', columnFilters, globalFilter, sorting],
     queryFn: async () => {
-      const fetchURL = new URL('https://aps2.zemenbank.com/zbss/api/rms/admin/landing/get_candidate');
+      const fetchURL = new URL(`${API_BASE}/rms/admin/landing/get_candidate`, window.location.origin);
 
       fetchURL.searchParams.set('filters', JSON.stringify(columnFilters ?? []));
       fetchURL.searchParams.set('globalFilter', globalFilter ?? '');

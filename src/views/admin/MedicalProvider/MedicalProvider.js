@@ -29,6 +29,7 @@ import { cilCheckCircle, cilX, cilPencil, cilTrash, cilPlus, cilBuilding } from 
 import CIcon from '@coreui/icons-react';
 import { useSelector } from 'react-redux';
 import { Building2, MapPin, Phone, Hash, AlertTriangle, Info } from 'lucide-react';
+import { API_BASE } from '../../../api/base';
 
 const AnimatedFormGroup = ({ children, delay }) => {
   return (
@@ -165,7 +166,7 @@ const MedicalProvider = () => {
   const fetchProviders = async () => {
     setIsFetching(true);
     try {
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/medical-provider/get_all_medical_providers', {
+      const response = await fetch(`${API_BASE}/medical-provider/get_all_medical_providers`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -238,8 +239,8 @@ const MedicalProvider = () => {
 
     try {
       const url = isEditMode 
-        ? 'https://aps2.zemenbank.com/zbss/api/medical-provider/update_medical_provider'
-        : 'https://aps2.zemenbank.com/zbss/api/medical-provider/register_medical_provider';
+        ? `${API_BASE}/medical-provider/update_medical_provider`
+        : `${API_BASE}/medical-provider/register_medical_provider`;
       
       const body = isEditMode 
         ? { ...formData, id: currentProvider._id }
@@ -297,7 +298,7 @@ const MedicalProvider = () => {
     }
 
     try {
-      const response = await fetch(`https://aps2.zemenbank.com/zbss/api/medical-provider/delete_medical_provider/${id}`, {
+      const response = await fetch(`${API_BASE}/medical-provider/delete_medical_provider/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

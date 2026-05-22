@@ -32,6 +32,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { useDropzone } from 'react-dropzone';
+import { API_BASE } from '../../../api/base';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -131,7 +132,7 @@ const ExcelImportDialog = ({ open, onClose, onImport }) => {
           const formData = new FormData();
           formData.append('file', file);
 
-          const response = await fetch('https://aps2.zemenbank.com/zbss/api/candidates/employee_excel_upload', {
+          const response = await fetch(`${API_BASE}/candidates/employee_excel_upload`, {
             method: 'POST',
             headers: {
               'x-access-token': accessToken,
@@ -198,7 +199,7 @@ const Example = () => {
   } = useQuery({
     queryKey: ['table-data', columnFilters, globalFilter, sorting],
     queryFn: async () => {
-      const fetchURL = new URL('https://aps2.zemenbank.com/zbss/api/getUsers');
+      const fetchURL = new URL(`${API_BASE}/getUsers`, window.location.origin);
       fetchURL.searchParams.set('filters', JSON.stringify(columnFilters ?? []));
       fetchURL.searchParams.set('globalFilter', globalFilter ?? '');
       fetchURL.searchParams.set('sorting', JSON.stringify(sorting ?? []));
@@ -540,7 +541,7 @@ function useCreateUser(refetch) {
 
       console.log("Sending data:", employeeData);
 
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/candidates/employee', {
+      const response = await fetch(`${API_BASE}/candidates/employee`, {
         method: "POST",
         headers: {
           'Content-Type': 'application/json',
@@ -598,7 +599,7 @@ function useUpdateUser() {
       console.log("Using ID for update:", userId);
       console.log("Update payload:", employeeData);
 
-      const response = await fetch(`https://aps2.zemenbank.com/zbss/api/candidates/employee/${userId}`, {
+      const response = await fetch(`${API_BASE}/candidates/employee/${userId}`, {
         method: "PUT",
         headers: {
           'Content-Type': 'application/json',
@@ -626,7 +627,7 @@ function useDeleteUser(refetch) {
   const accessToken = useSelector((state) => state.user.accessToken);
   return useMutation({
     mutationFn: async (userId) => {
-      const response = await fetch(`https://aps2.zemenbank.com/zbss/api/candidates/employee/${userId}`, {
+      const response = await fetch(`${API_BASE}/candidates/employee/${userId}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

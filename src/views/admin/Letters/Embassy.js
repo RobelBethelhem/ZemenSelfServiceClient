@@ -23,6 +23,7 @@ import Confetti from 'react-confetti';
 import nuru_signature from './nuru_signature.png';
 import { useDispatch, useSelector } from 'react-redux';
 import { ToastContainer, toast } from 'react-toastify';
+import { API_BASE } from '../../../api/base';
 import 'react-toastify/dist/ReactToastify.css';
 
 const SocialIcon = ({ path, viewBox = "0 0 24 24" }) => (
@@ -96,7 +97,7 @@ const Embassy_Letter = () => {
 
     setIsVerifying(true);
     try {
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/verify-token', {
+      const response = await fetch(`${API_BASE}/verify-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -542,7 +543,7 @@ const Embassy_Letter = () => {
                       }}
                     >
                       <QRCodeWithLogo
-                        url={`${typeof __VERIFY_URL_BASE__ !== 'undefined' ? __VERIFY_URL_BASE__ : 'https://aps2.zemenbank.com/zbss/#/verify'}/${encodeURIComponent(reference_number || '')}`}
+                        url={`${typeof __VERIFY_URL_BASE__ !== 'undefined' ? __VERIFY_URL_BASE__ : 'https://zhr.zemenbank.com/zbss/#/verify'}/${encodeURIComponent(reference_number || '')}`}
                         size={80}
                         logoUrl={watermarkImage}
                       />

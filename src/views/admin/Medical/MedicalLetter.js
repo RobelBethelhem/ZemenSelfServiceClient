@@ -3219,6 +3219,8 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { AlertTriangle, Info, Heart, Users, Baby, Search, Building2, MapPin, Phone } from 'lucide-react';
 
+import { API_BASE } from '../../../api/base';
+
 
 
 const InfiniteScrollText = ({ text }) => {
@@ -4063,7 +4065,7 @@ const MedicalLetter = () => {
 
     try {
 
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/medical-provider/get_all_medical_providers', {
+      const response = await fetch(`${API_BASE}/medical-provider/get_all_medical_providers`, {
 
         method: 'GET',
 
@@ -4261,11 +4263,11 @@ const MedicalLetter = () => {
 
     setProgress(0);
 
-  
+
 
     try {
 
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/medical/register_request_medical', {
+      const response = await fetch(`${API_BASE}/medical/register_request_medical`, {
 
         method: 'POST',
 

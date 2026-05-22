@@ -15,8 +15,9 @@ import {
 } from '@coreui/react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { API_BASE as API_ROOT } from '../../../api/base';
 
-const API_BASE = 'https://aps2.zemenbank.com/zbss/api/salary-increment';
+const API_BASE = `${API_ROOT}/salary-increment`;
 
 const STAT_TILE_COLORS = {
   Imported: 'warning',

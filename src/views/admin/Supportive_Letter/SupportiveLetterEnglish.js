@@ -18,6 +18,7 @@ import { cilCheckCircle, cilX, cilUser, cilBuilding, cilPencil, cilLocationPin }
 import CIcon from '@coreui/icons-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AlertTriangle, Info, Globe, Languages } from 'lucide-react';
+import { API_BASE } from '../../../api/base';
 
 const InfiniteScrollText = ({ text }) => {
   const controls = useAnimationControls();
@@ -457,7 +458,7 @@ const SupportiveLetterEnglish = () => {
     setProgress(0);
   
     try {
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/supportive/register_request_supportive', {
+      const response = await fetch(`${API_BASE}/supportive/register_request_supportive`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

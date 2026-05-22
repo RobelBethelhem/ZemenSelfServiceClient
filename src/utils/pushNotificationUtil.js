@@ -1,3 +1,5 @@
+import { API_BASE } from '../api/base';
+
 class PushNotificationUtil {
     static vapidPublicKey = null;
     static isSupported = false;
@@ -192,7 +194,7 @@ class PushNotificationUtil {
                     applicationServerKey: '${this.vapidPublicKey || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'}'
                 }).then((subscription) => {
                     // Send new subscription to server
-                    return fetch('https://aps2.zemenbank.com/api/push/subscribe', {
+                    return fetch('${API_BASE}/push/subscribe', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

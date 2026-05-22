@@ -24,8 +24,9 @@ import {
   CTableDataCell,
   CBadge,
 } from '@coreui/react';
+import { API_BASE } from '../../../api/base';
 
-const API_URL = 'https://aps2.zemenbank.com/zbss/api/salary-increment/import';
+const API_URL = `${API_BASE}/salary-increment/import`;
 
 const initialForm = {
   fiscal_year: new Date().getFullYear(),

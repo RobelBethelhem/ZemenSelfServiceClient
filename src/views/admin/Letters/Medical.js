@@ -16,6 +16,7 @@ import stamp from './stamp.png';
 import { useDispatch, useSelector } from 'react-redux';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { API_BASE } from '../../../api/base';
 
 const MedicalSlip = () => {
   const location = useLocation();
@@ -47,7 +48,7 @@ const MedicalSlip = () => {
 
     setIsVerifying(true);
     try {
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/verify-token', {
+      const response = await fetch(`${API_BASE}/verify-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

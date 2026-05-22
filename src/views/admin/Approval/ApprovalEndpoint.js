@@ -83,6 +83,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
+import { API_BASE } from '../../../api/base';
 
 function useApproveRequest(refetch) {
   const accessToken = useSelector((state) => state.user.accessToken);
@@ -95,7 +96,7 @@ function useApproveRequest(refetch) {
       // Route to correct endpoint based on request type
       switch (request_type.toLowerCase()) {
         case 'experience':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/experiance/view_request_experiance';
+          endpoint = `${API_BASE}/experiance/view_request_experiance`;
           bodyData = {
             id,
             employee_first_name: '',
@@ -106,7 +107,7 @@ function useApproveRequest(refetch) {
           break;
 
         case 'supportive':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/supportive/view_request_supportive';
+          endpoint = `${API_BASE}/supportive/view_request_supportive`;
           bodyData = {
             id,
             medical_place: '',
@@ -123,7 +124,7 @@ function useApproveRequest(refetch) {
           break;
 
         case 'guranty':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/guaranty/view_request_guaranty';
+          endpoint = `${API_BASE}/guaranty/view_request_guaranty`;
           bodyData = {
             id,
             employee_first_name: '',
@@ -138,7 +139,7 @@ function useApproveRequest(refetch) {
           break;
 
         case 'embassy':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/embassy/view_request_embassy';
+          endpoint = `${API_BASE}/embassy/view_request_embassy`;
           bodyData = {
             id,
             employee_first_name: '',
@@ -150,7 +151,7 @@ function useApproveRequest(refetch) {
           break;
 
         case 'medical':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/medical/view_request_medical';
+          endpoint = `${API_BASE}/medical/view_request_medical`;
           bodyData = {
             id,
             is_Spouse: false,
@@ -213,23 +214,23 @@ function useRejectRequest(refetch) {
       // Route to correct reject endpoint based on request type
       switch (request_type.toLowerCase()) {
         case 'experience':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/experiance/reject_request_experiance';
+          endpoint = `${API_BASE}/experiance/reject_request_experiance`;
           break;
 
         case 'supportive':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/supportive/reject_request_supportive';
+          endpoint = `${API_BASE}/supportive/reject_request_supportive`;
           break;
 
         case 'guranty':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/guaranty/reject_request_guaranty';
+          endpoint = `${API_BASE}/guaranty/reject_request_guaranty`;
           break;
 
         case 'embassy':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/embassy/reject_request_embassy';
+          endpoint = `${API_BASE}/embassy/reject_request_embassy`;
           break;
 
         case 'medical':
-          endpoint = 'https://aps2.zemenbank.com/zbss/api/medical/reject_request_medical';
+          endpoint = `${API_BASE}/medical/reject_request_medical`;
           break;
 
         default:

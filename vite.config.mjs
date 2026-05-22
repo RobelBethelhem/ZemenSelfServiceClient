@@ -16,8 +16,11 @@ const GIT_BRANCH = safeGit('git rev-parse --abbrev-ref HEAD')
 const GIT_COMMIT = safeGit('git rev-parse --short HEAD')
 const BUILD_TIME = new Date().toISOString()
 
+// Public-facing host. QR codes printed on letters must resolve from the
+// open internet (where aps2.zemenbank.com is not reachable), so default to
+// the public-facing zhr host. Override via VITE_VERIFY_URL_BASE if needed.
 const VERIFY_URL_BASE =
-  process.env.VITE_VERIFY_URL_BASE || 'https://aps2.zemenbank.com/zbss/#/verify'
+  process.env.VITE_VERIFY_URL_BASE || 'https://zhr.zemenbank.com/zbss/#/verify'
 
 export default defineConfig(() => {
   return {
@@ -65,10 +68,15 @@ export default defineConfig(() => {
     server: {
       port: 4000,
       proxy: {
-        '/api': {
-          target: 'http://aps2.zemenbank.com/zmss',
+        // Source code now calls relative /zbss/api/... URLs. In dev, Vite
+        // proxies anything starting with /zbss to the backend on aps2 so
+        // those calls reach a real server. Production serves the SPA from
+        // the same host that handles /zbss/api, so the relative path
+        // resolves naturally without any rewrite.
+        '/zbss': {
+          target: 'https://aps2.zemenbank.com',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\https://aps2.zemenbank.com/zbss/api/ '')
+          secure: false,
         },
         // https://vitejs.dev/config/server-options.html
       },

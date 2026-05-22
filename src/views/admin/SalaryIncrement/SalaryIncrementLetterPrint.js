@@ -15,13 +15,13 @@ import stampImage from '../Letters/stamp.png';
 import socialImage from '../Letters/social.png';
 import ceoSignature from '../Letters/ceo_signature.png';
 
+import { API_BASE } from '../../../api/base';
+
 /* global __VERIFY_URL_BASE__ */
 const VERIFY_URL_BASE =
   typeof __VERIFY_URL_BASE__ !== 'undefined'
     ? __VERIFY_URL_BASE__
-    : 'https://aps2.zemenbank.com/zbss/#/verify';
-
-const API_BASE = 'https://aps2.zemenbank.com/zbss/api';
+    : 'https://zhr.zemenbank.com/zbss/#/verify';
 
 // ----------------------- formatting helpers -----------------------
 

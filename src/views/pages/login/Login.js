@@ -22,6 +22,7 @@ import { cilLockLocked, cilUser } from '@coreui/icons';
 import { logo } from '../../../assets/brand/logo';
 import { useDispatch, useSelector } from 'react-redux';
 import './Login.css';
+import { API_BASE } from '../../../api/base';
 
 const Login = () => {
   const dispatch = useDispatch();
@@ -37,7 +38,7 @@ const Login = () => {
     if (accessToken) {
       const verifyToken = async () => {
         try {
-          const response = await fetch('https://aps2.zemenbank.com/zbss/api/verify-token', {
+          const response = await fetch(`${API_BASE}/verify-token`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -71,7 +72,7 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch("https://aps2.zemenbank.com/zbss/api/login", {
+      const response = await fetch(`${API_BASE}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

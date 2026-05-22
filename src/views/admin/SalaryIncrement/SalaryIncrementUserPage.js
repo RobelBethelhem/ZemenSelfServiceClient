@@ -23,8 +23,9 @@ import SalaryIncrementLetterPrint from './SalaryIncrementLetterPrint';
 import logoImage from '../Letters/logo.png';
 import watermarkImage from '../Letters/watermark.png';
 import socialImage from '../Letters/social.png';
+import { API_BASE as API_ROOT } from '../../../api/base';
 
-const API_BASE = 'https://aps2.zemenbank.com/zbss/api/salary-increment';
+const API_BASE = `${API_ROOT}/salary-increment`;
 
 // Short acknowledgment shown inline next to the Accept / Decline buttons —
 // written in the first person to match the legal language of the agreement

@@ -5,6 +5,7 @@ import boolImage from './views/admin/Letters/bool.png';
 import './loadingSpinner.css';
 
 import { useDispatch, useSelector } from 'react-redux';
+import { API_BASE } from './api/base';
 
 const PrivateRoute = ({ allowedRoles, children }) => {
   const accessToken = useSelector(state => state.user.accessToken);
@@ -16,7 +17,7 @@ const PrivateRoute = ({ allowedRoles, children }) => {
   useEffect(() => {
     const verifyToken = async () => {
       try {
-        const response = await fetch('https://aps2.zemenbank.com/zbss/api/verify-token', {
+        const response = await fetch(`${API_BASE}/verify-token`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

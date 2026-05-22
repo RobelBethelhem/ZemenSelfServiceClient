@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
+import { API_BASE } from '../../../api/base';
 
 function useApproveRequest(refetch) {
   const queryClient = useQueryClient();
@@ -8,7 +9,7 @@ function useApproveRequest(refetch) {
 
   return useMutation({
     mutationFn: async ({ id, request_type }) => {
-      const response = await fetch("https://aps2.zemenbank.com/zbss/api/guaranty/getData", {
+      const response = await fetch(`${API_BASE}/guaranty/getData`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

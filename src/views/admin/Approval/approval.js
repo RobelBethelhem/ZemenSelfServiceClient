@@ -5666,6 +5666,7 @@ import { CheckCircle, XCircle, X as CloseIcon } from 'lucide-react';
 import { useApproveRequest, useRejectRequest } from './ApprovalEndpoint';
 import PreviewIcon from '@mui/icons-material/Preview';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE } from '../../../api/base';
 
 const formatDateTime = (dateString) => {
   try {
@@ -6506,7 +6507,8 @@ const Example = () => {
     queryKey: ['table-data', columnFilters, globalFilter, sorting],
     queryFn: async () => {
       const fetchURL = new URL(
-        'https://aps2.zemenbank.com/zbss/api/rms/admin/landing/get_candidate'
+        `${API_BASE}/rms/admin/landing/get_candidate`,
+        window.location.origin,
       );
 
       fetchURL.searchParams.set('filters', JSON.stringify(columnFilters ?? []));
@@ -6711,7 +6713,7 @@ const Example = () => {
   const handleRevokeGuaranty = async () => {
     try {
       const response = await fetch(
-        'https://aps2.zemenbank.com/zbss/api/guaranty/revoke_guaranties',
+        `${API_BASE}/guaranty/revoke_guaranties`,
         {
           method: 'PATCH',
           headers: {

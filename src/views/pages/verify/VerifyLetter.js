@@ -10,8 +10,7 @@ import {
   CBadge,
 } from '@coreui/react';
 import zbLogo from '../../../assets/brand/zb.png';
-
-const API_BASE = 'https://aps2.zemenbank.com/zbss/api';
+import { API_BASE } from '../../../api/base';
 
 const formatDate = (value) => {
   if (!value) return '-';

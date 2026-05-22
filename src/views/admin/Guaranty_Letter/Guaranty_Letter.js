@@ -17,6 +17,7 @@ import {
 import { cilCheckCircle, cilX, cilUser, cilBriefcase, cilLocationPin } from '@coreui/icons';
 import CIcon from '@coreui/icons-react';
 import { useDispatch, useSelector } from 'react-redux';
+import { API_BASE } from '../../../api/base';
 
 const InfiniteScrollText = ({ text }) => {
   const controls = useAnimationControls();
@@ -194,7 +195,7 @@ const GuarantyLetterRequestForm = () => {
     setProgress(0);
 
     try {
-      const response = await fetch('https://aps2.zemenbank.com/zbss/api/guaranty/register_request_guaranty', {
+      const response = await fetch(`${API_BASE}/guaranty/register_request_guaranty`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

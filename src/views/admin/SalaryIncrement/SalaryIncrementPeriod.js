@@ -17,8 +17,9 @@ import {
   CAlert,
   CBadge,
 } from '@coreui/react';
+import { API_BASE as API_ROOT } from '../../../api/base';
 
-const API_BASE = 'https://aps2.zemenbank.com/zbss/api/salary-increment';
+const API_BASE = `${API_ROOT}/salary-increment`;
 
 const fmtDateTime = (d) => {
   if (!d) return '-';

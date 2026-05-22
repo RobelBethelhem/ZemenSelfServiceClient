@@ -68,6 +68,7 @@ import { Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { API_BASE } from '../api/base';
 
 const LogOut = () => {
   const [redirectPath, setRedirectPath] = useState(null);
@@ -78,7 +79,7 @@ const LogOut = () => {
     const logOut = async () => {
       try {
         if (refreshToken) {
-          const response = await fetch('https://aps2.zemenbank.com/zbss/api/refreshToken/', {
+          const response = await fetch(`${API_BASE}/refreshToken/`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
