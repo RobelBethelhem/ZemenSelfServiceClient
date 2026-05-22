@@ -208,6 +208,22 @@ const VerifyLetter = () => {
                         <Field label="Reference Number" value={state.data.reference_number || ref} />
                         <Field label="Letter Type" value={state.data.letter_type} />
                         <Field label="Employee Name" value={state.data.employee_name} />
+                        {/*
+                          Guaranty-only extras. Backend returns them under the
+                          corrected spelling (guarantor_*); only render when
+                          present so other letter types stay unaffected and so
+                          older Guaranty letters issued before this field was
+                          projected still render cleanly.
+                        */}
+                        {state.data.guarantor_name && (
+                          <Field label="Guarantor Name" value={state.data.guarantor_name} />
+                        )}
+                        {state.data.guarantor_organization && (
+                          <Field
+                            label="Guarantor Organization"
+                            value={state.data.guarantor_organization}
+                          />
+                        )}
                         {state.data.status === 'Rejected' ? (
                           <Field
                             label="Rejected Date"
