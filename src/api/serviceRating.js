@@ -58,6 +58,26 @@ export const QUESTIONS = [
 
 export const LIKERT_KEYS = QUESTIONS.filter((q) => q.type === 'likert').map((q) => q.key)
 
+// How the survey behaves for a given letter type. Set per type by an admin.
+//   mandatory - no opt-out; Q1-Q4 must be answered before printing
+//   optional  - the user is asked whether they want to rate at all
+//   disabled  - no survey; printing is never interrupted
+// A letter type with no policy configured resolves to `mandatory`, which is
+// how the survey behaved before policies existed.
+export const RATING_MODES = ['mandatory', 'optional', 'disabled']
+
+export const MODE_LABELS = {
+  mandatory: 'Mandatory',
+  optional: 'Optional',
+  disabled: 'Disabled',
+}
+
+export const MODE_HINTS = {
+  mandatory: 'Every user must complete the survey before printing or downloading.',
+  optional: 'Users are asked first. If they decline, printing continues immediately.',
+  disabled: 'No survey is shown. Printing and downloading are never interrupted.',
+}
+
 const jsonHeaders = (accessToken) => ({
   'Content-Type': 'application/json',
   'x-access-token': accessToken,
@@ -103,6 +123,42 @@ export const submitRating = async ({ accessToken, requestId, requestType, answer
       ...answers,
     }),
   })
+  return readJson(response)
+}
+
+// Recorded, not discarded — it gives HR a response rate and stops the user
+// being re-prompted on every reprint of the same letter.
+export const declineRating = async ({ accessToken, requestId, requestType }) => {
+  const response = await fetch(`${SR_BASE}/decline`, {
+    method: 'POST',
+    headers: jsonHeaders(accessToken),
+    body: JSON.stringify({ request_id: requestId, request_type: requestType }),
+  })
+  return readJson(response)
+}
+
+export const fetchRatingPolicies = async ({ accessToken }) => {
+  const response = await fetch(`${SR_BASE}/admin/policy`, {
+    method: 'GET',
+    headers: jsonHeaders(accessToken),
+  })
+  return readJson(response)
+}
+
+export const saveRatingPolicy = async ({ accessToken, policy }) => {
+  const response = await fetch(`${SR_BASE}/admin/policy`, {
+    method: 'PUT',
+    headers: jsonHeaders(accessToken),
+    body: JSON.stringify(policy),
+  })
+  return readJson(response)
+}
+
+export const fetchPolicyHistory = async ({ accessToken, requestType = '' }) => {
+  const response = await fetch(
+    `${SR_BASE}/admin/policy/history${qs({ request_type: requestType })}`,
+    { method: 'GET', headers: jsonHeaders(accessToken) },
+  )
   return readJson(response)
 }
 

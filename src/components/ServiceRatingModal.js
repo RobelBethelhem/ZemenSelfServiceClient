@@ -13,7 +13,7 @@ import {
   CAlert,
   CSpinner,
 } from '@coreui/react'
-import { QUESTIONS, LIKERT_KEYS, SCALE_LABELS } from '../api/serviceRating'
+import { QUESTIONS, LIKERT_KEYS, SCALE_LABELS, RATING_MODES } from '../api/serviceRating'
 
 const STAR_ACTIVE = '#f5a623'
 const STAR_IDLE = '#ced2db'
@@ -128,15 +128,21 @@ const ServiceRatingModal = ({
   onClose,
   onSubmit,
   onComplete,
+  onDecline,
   letterLabel,
   referenceNumber,
   actionLabel = 'print',
+  mode = 'mandatory',
 }) => {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState(emptyAnswers)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  // Under an "optional" policy the user is asked whether they want to rate at
+  // all before seeing any question. Under "mandatory" that choice is not
+  // offered and the survey opens straight on question 1.
+  const [showIntro, setShowIntro] = useState(false)
 
   // Fresh survey every time the modal opens.
   useEffect(() => {
@@ -146,8 +152,9 @@ const ServiceRatingModal = ({
       setSubmitting(false)
       setError('')
       setDone(false)
+      setShowIntro(mode === 'optional')
     }
-  }, [visible])
+  }, [visible, mode])
 
   const total = QUESTIONS.length
   const question = QUESTIONS[step]
@@ -195,6 +202,20 @@ const ServiceRatingModal = ({
     }
   }
 
+  // "No thanks" on the intro. The decline is recorded so the user is not
+  // asked again on a reprint, then the print is released immediately.
+  const decline = async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      await onDecline()
+      onComplete()
+    } catch (e) {
+      setError(e.message || 'Could not continue. Please try again.')
+      setSubmitting(false)
+    }
+  }
+
   // Let the thank-you land before handing control back, then release the
   // print/download the user originally asked for.
   useEffect(() => {
@@ -225,6 +246,31 @@ const ServiceRatingModal = ({
             <div style={{ fontSize: '2.5rem', lineHeight: 1 }}>🎉</div>
             <h5 className="mt-3 mb-1">Thank you for your feedback</h5>
             <p className="text-medium-emphasis mb-0">Preparing your {actionLabel}…</p>
+          </div>
+        ) : showIntro ? (
+          <div className="text-center py-3">
+            <div style={{ fontSize: '2.25rem', lineHeight: 1 }}>⭐</div>
+            <h5 className="mt-3 mb-2">Would you like to rate the service you received?</h5>
+            <p className="text-medium-emphasis mb-3" style={{ fontSize: '0.9rem' }}>
+              Your <strong>{letterLabel || 'letter'}</strong>
+              {referenceNumber ? (
+                <>
+                  {' '}
+                  (<code>{referenceNumber}</code>)
+                </>
+              ) : null}{' '}
+              is ready to {actionLabel}. Rating is voluntary and takes less than a minute — your
+              feedback helps HR improve the service.
+            </p>
+            <CAlert color="light" className="text-start mb-0 py-2" style={{ fontSize: '0.82rem' }}>
+              If you choose to rate, all <strong>four</strong> questions must be answered. The
+              suggestion box at the end is optional. You will not be asked again for this request.
+            </CAlert>
+            {error ? (
+              <CAlert color="danger" className="mt-3 mb-0 py-2">
+                {error}
+              </CAlert>
+            ) : null}
           </div>
         ) : (
           <>
@@ -284,13 +330,36 @@ const ServiceRatingModal = ({
         )}
       </CModalBody>
 
-      {!done && (
+      {!done && showIntro && (
+        <CModalFooter className="d-flex justify-content-between">
+          <CButton color="secondary" variant="outline" disabled={submitting} onClick={decline}>
+            {submitting ? (
+              <>
+                <CSpinner size="sm" className="me-2" />
+                Continuing…
+              </>
+            ) : (
+              `No thanks — ${actionLabel} now`
+            )}
+          </CButton>
+          <CButton color="primary" disabled={submitting} onClick={() => setShowIntro(false)}>
+            Yes, rate the service
+          </CButton>
+        </CModalFooter>
+      )}
+
+      {!done && !showIntro && (
         <CModalFooter className="d-flex justify-content-between">
           <CButton
             color="secondary"
             variant="ghost"
-            disabled={step === 0 || submitting}
-            onClick={() => setStep((prev) => Math.max(0, prev - 1))}
+            disabled={(step === 0 && mode !== 'optional') || submitting}
+            onClick={() => {
+              // From question 1 under an optional policy, Back returns to the
+              // yes/no choice rather than dead-ending.
+              if (step === 0) setShowIntro(true)
+              else setStep((prev) => Math.max(0, prev - 1))
+            }}
           >
             Back
           </CButton>
@@ -338,9 +407,11 @@ ServiceRatingModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
   onComplete: PropTypes.func.isRequired,
+  onDecline: PropTypes.func.isRequired,
   letterLabel: PropTypes.string,
   referenceNumber: PropTypes.string,
   actionLabel: PropTypes.string,
+  mode: PropTypes.oneOf(RATING_MODES),
 }
 
 export default ServiceRatingModal

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import ServiceRatingModal from './ServiceRatingModal'
-import { fetchRatingStatus, submitRating } from '../api/serviceRating'
+import { fetchRatingStatus, submitRating, declineRating } from '../api/serviceRating'
 
 // Gates the FIRST print/download of an approved letter behind the service
 // rating survey.
@@ -39,25 +39,37 @@ const useServiceRatingGate = ({ rowData, requestType, letterLabel }) => {
 
   const [open, setOpen] = useState(false)
   const [actionLabel, setActionLabel] = useState('print')
+  // Resolved from the admin's policy for this letter type. Drives whether the
+  // user is asked at all ("optional"), forced ("mandatory"), or left alone
+  // ("disabled"). Held in state as well as a ref because the modal renders it.
+  const [mode, setMode] = useState('mandatory')
 
   // Refs, not state: `gate` must read the freshest value inside a click
   // handler without re-creating every consumer's onClick.
   const checkedRef = useRef(false)
   const ratedRef = useRef(false)
+  const modeRef = useRef('mandatory')
   const pendingActionRef = useRef(null)
 
   const readStatus = useCallback(async () => {
-    if (checkedRef.current) return ratedRef.current
+    if (checkedRef.current) return { rated: ratedRef.current, mode: modeRef.current }
     try {
       const result = await fetchRatingStatus({ accessToken, requestId, requestType })
       ratedRef.current = !!result.rated
+      // An unrecognised mode from a newer backend must not hard-block a
+      // print, so anything unexpected degrades to "no survey".
+      const resolved = ['mandatory', 'optional', 'disabled'].includes(result.mode)
+        ? result.mode
+        : 'disabled'
+      modeRef.current = resolved
+      setMode(resolved)
     } catch (e) {
       // Fail open — see the note above.
       console.warn('[service-rating] status check failed, allowing action:', e.message)
       ratedRef.current = true
     }
     checkedRef.current = true
-    return ratedRef.current
+    return { rated: ratedRef.current, mode: modeRef.current }
   }, [accessToken, requestId, requestType])
 
   // Warm the answer up front so the common case (already rated, or first
@@ -74,8 +86,10 @@ const useServiceRatingGate = ({ rowData, requestType, letterLabel }) => {
       async (...args) => {
         if (!enabled) return action(...args)
 
-        const alreadyRated = await readStatus()
-        if (alreadyRated) return action(...args)
+        const { rated, mode: resolved } = await readStatus()
+        // Already answered (rated OR declined), or the admin switched the
+        // survey off for this letter type — either way, do not interrupt.
+        if (rated || resolved === 'disabled') return action(...args)
 
         pendingActionRef.current = () => action(...args)
         setActionLabel(label)
@@ -93,6 +107,18 @@ const useServiceRatingGate = ({ rowData, requestType, letterLabel }) => {
     },
     [accessToken, requestId, requestType],
   )
+
+  // Recording the decline is what stops the user being re-asked on a reprint.
+  // If it fails we still let them through — the print is what they came for.
+  const handleDecline = useCallback(async () => {
+    try {
+      await declineRating({ accessToken, requestId, requestType })
+    } catch (e) {
+      console.warn('[service-rating] decline could not be recorded:', e.message)
+    }
+    ratedRef.current = true
+    checkedRef.current = true
+  }, [accessToken, requestId, requestType])
 
   // Survey done -> close and release the print/download that was held back.
   const handleComplete = useCallback(() => {
@@ -118,9 +144,11 @@ const useServiceRatingGate = ({ rowData, requestType, letterLabel }) => {
       onClose={handleClose}
       onSubmit={handleSubmit}
       onComplete={handleComplete}
+      onDecline={handleDecline}
       letterLabel={letterLabel}
       referenceNumber={referenceNumber}
       actionLabel={actionLabel}
+      mode={mode}
     />
   ) : null
 

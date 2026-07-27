@@ -421,6 +421,14 @@ const ServiceRatingDashboard = () => {
               <CAlert color="info" className="mb-0">
                 No service ratings match the current filters yet. Ratings appear here once a
                 requester prints or downloads an approved letter for the first time.
+                {summary && summary.declined ? (
+                  <div className="mt-2">
+                    <strong>{summary.declined}</strong> user
+                    {summary.declined === 1 ? '' : 's'} were asked and chose not to rate. Letter
+                    types set to <em>Optional</em> let users skip the survey — change this under{' '}
+                    <strong>Service Rating → Rating Policy</strong>.
+                  </div>
+                ) : null}
               </CAlert>
             ) : (
               <>
@@ -454,6 +462,18 @@ const ServiceRatingDashboard = () => {
                       hint="Question 5 responses"
                     />
                   </CCol>
+                  {/* Only meaningful once some letter type is set to
+                      "optional" — under a mandatory policy there is nothing
+                      to decline and this would always read 100%. */}
+                  {summary && summary.declined ? (
+                    <CCol sm={6} lg={3}>
+                      <KpiCard
+                        label="Response rate"
+                        value={summary.response_rate === null ? '—' : `${summary.response_rate}%`}
+                        hint={`${summary.declined} declined of ${summary.asked} asked`}
+                      />
+                    </CCol>
+                  ) : null}
                 </CRow>
 
                 {/* ---------------- overall per question ---------------- */}

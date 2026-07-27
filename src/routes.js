@@ -48,6 +48,7 @@ const SalaryIncrementAnalytics = React.lazy(() => import('./views/admin/SalaryIn
 
 // --- Service rating (survey gate on letter print/download) -----------------
 const ServiceRatingDashboard = React.lazy(() => import('./views/admin/ServiceRating/ServiceRatingDashboard'));
+const ServiceRatingPolicy = React.lazy(() => import('./views/admin/ServiceRating/ServiceRatingPolicy'));
 const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Chat', element: Chat },
@@ -262,6 +263,12 @@ const routes = [
     path: '/admin/service-rating',
     name: 'ServiceRating',
     element: ServiceRatingDashboard,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/service-rating/policy',
+    name: 'ServiceRatingPolicy',
+    element: ServiceRatingPolicy,
     roles: ['admin']
   },
 ]
