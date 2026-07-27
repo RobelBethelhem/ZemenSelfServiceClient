@@ -297,6 +297,13 @@ const _nav = (userRole) => [
     ],
   },
 
+  {
+    component: CNavItem,
+    name: 'Service Rating',
+    to: '/admin/service-rating',
+    icon: <CIcon icon={cilStar} customClassName="nav-icon" />,
+  },
+
 ] : []),
 
 

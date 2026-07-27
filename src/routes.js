@@ -45,6 +45,9 @@ const SalaryIncrementUserPage = React.lazy(() => import('./views/admin/SalaryInc
 const SalaryIncrementList = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementList'));
 const SalaryIncrementPeriod = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementPeriod'));
 const SalaryIncrementAnalytics = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementAnalytics'));
+
+// --- Service rating (survey gate on letter print/download) -----------------
+const ServiceRatingDashboard = React.lazy(() => import('./views/admin/ServiceRating/ServiceRatingDashboard'));
 const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Chat', element: Chat },
@@ -251,6 +254,14 @@ const routes = [
     path: '/admin/salary-increment/analytics',
     name: 'SalaryIncrementAnalytics',
     element: SalaryIncrementAnalytics,
+    roles: ['admin']
+  },
+
+  // --- Service rating ------------------------------------------------------
+  {
+    path: '/admin/service-rating',
+    name: 'ServiceRating',
+    element: ServiceRatingDashboard,
     roles: ['admin']
   },
 ]

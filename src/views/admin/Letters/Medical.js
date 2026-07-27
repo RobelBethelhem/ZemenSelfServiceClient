@@ -17,6 +17,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { API_BASE } from '../../../api/base';
+import useServiceRatingGate from '../../../components/useServiceRatingGate';
 
 const MedicalSlip = () => {
   const location = useLocation();
@@ -72,6 +73,15 @@ const MedicalSlip = () => {
       setIsVerifying(false);
     }
   };
+
+  // Service-rating gate: the first print or download of an approved letter
+  // asks the requester to rate the service they received. Declared above the
+  // early return below so the hook runs on every render.
+  const { gate, ratingModal } = useServiceRatingGate({
+    rowData,
+    requestType: 'Medical',
+    letterLabel: 'Medical Referral Slip',
+  });
 
   if (!rowData) {
     return (
@@ -247,12 +257,13 @@ const MedicalSlip = () => {
       
       <div className="position-relative" style={{ width: '210mm', maxWidth: '100%', margin: '0 auto' }}>
         <div className="top-0 start-0 m-3 z-index-1">
-          <button onClick={handlePrint} className="btn btn-danger me-2" disabled={isVerifying}>
+          <button onClick={gate(handlePrint, 'print')} className="btn btn-danger me-2" disabled={isVerifying}>
             {isVerifying ? 'Verifying...' : 'Print'}
           </button>
-          <button onClick={handleDownload} className="btn btn-success me-2" disabled={isVerifying}>
+          <button onClick={gate(handleDownload, 'download')} className="btn btn-success me-2" disabled={isVerifying}>
             {isVerifying ? 'Verifying...' : 'Download as PDF'}
           </button>
+          {ratingModal}
         </div>
         
         <motion.div

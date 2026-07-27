@@ -1182,6 +1182,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { API_BASE } from '../../../api/base';
+import useServiceRatingGate from '../../../components/useServiceRatingGate';
 
 const FlexContainer = ({ children, style }) => (
   <div className="d-flex flex-wrap align-items-baseline mb-2" style={style}>
@@ -1294,6 +1295,15 @@ const Experience_Letter = () => {
       setIsVerifying(false);
     }
   };
+
+  // Service-rating gate: the first print or download of an approved letter
+  // asks the requester to rate the service they received. Declared above the
+  // early return below so the hook runs on every render.
+  const { gate, ratingModal } = useServiceRatingGate({
+    rowData,
+    requestType: 'Experience',
+    letterLabel: 'Experience Letter',
+  });
 
   if (!rowData) {
     return <div>No data available</div>;
@@ -1574,12 +1584,13 @@ const Experience_Letter = () => {
         backgroundColor: 'white'
       }}>
         <div className="top-0 start-0 m-3 z-index-1">
-          <button onClick={handlePrint} className="btn btn-primary me-2" disabled={isVerifying}>
+          <button onClick={gate(handlePrint, 'print')} className="btn btn-primary me-2" disabled={isVerifying}>
             {isVerifying ? 'Verifying...' : 'Print'}
           </button>
-          <button onClick={handleDownload} className="btn btn-success me-2" disabled={isVerifying}>
+          <button onClick={gate(handleDownload, 'download')} className="btn btn-success me-2" disabled={isVerifying}>
             {isVerifying ? 'Verifying...' : 'Download as PDF'}
           </button>
+          {ratingModal}
           
           {/* Toggle Switch for Letterhead */}
           <div className="d-inline-flex align-items-center ms-3">
