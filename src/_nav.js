@@ -31,6 +31,12 @@ const _nav = (userRole) => [
   ...(userRole === 'user' ? [
     {
       component: CNavItem,
+      name: 'Announcements',
+      to: '/user/announcements',
+      icon: <CIcon icon={cilBell} customClassName="nav-icon" />,
+    },
+    {
+      component: CNavItem,
       name: 'Salary Increment & Bonus',
       to: '/user/salary-increment',
       icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
@@ -293,6 +299,35 @@ const _nav = (userRole) => [
         component: CNavItem,
         name: 'Analytics',
         to: '/admin/salary-increment/analytics'
+      },
+    ],
+  },
+
+  {
+    component: CNavGroup,
+    name: 'Announcements',
+    to: '/admin/announcements',
+    icon: <CIcon icon={cilBell} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'My Announcements',
+        to: '/user/announcements'
+      },
+      {
+        component: CNavItem,
+        name: 'Manage',
+        to: '/admin/announcements'
+      },
+      {
+        component: CNavItem,
+        name: 'New Announcement',
+        to: '/admin/announcements/new'
+      },
+      {
+        component: CNavItem,
+        name: 'Categories',
+        to: '/admin/announcements/categories'
       },
     ],
   },

@@ -49,6 +49,12 @@ const SalaryIncrementAnalytics = React.lazy(() => import('./views/admin/SalaryIn
 // --- Service rating (survey gate on letter print/download) -----------------
 const ServiceRatingDashboard = React.lazy(() => import('./views/admin/ServiceRating/ServiceRatingDashboard'));
 const ServiceRatingPolicy = React.lazy(() => import('./views/admin/ServiceRating/ServiceRatingPolicy'));
+
+// --- Announcements ---------------------------------------------------------
+const AnnouncementFeedPage = React.lazy(() => import('./views/admin/Announcement/AnnouncementFeedPage'));
+const AnnouncementList = React.lazy(() => import('./views/admin/Announcement/AnnouncementList'));
+const AnnouncementBuilder = React.lazy(() => import('./views/admin/Announcement/AnnouncementBuilder'));
+const AnnouncementCategories = React.lazy(() => import('./views/admin/Announcement/AnnouncementCategories'));
 const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Chat', element: Chat },
@@ -269,6 +275,38 @@ const routes = [
     path: '/admin/service-rating/policy',
     name: 'ServiceRatingPolicy',
     element: ServiceRatingPolicy,
+    roles: ['admin']
+  },
+
+  // --- Announcements -------------------------------------------------------
+  {
+    path: '/user/announcements',
+    name: 'Announcements',
+    element: AnnouncementFeedPage,
+    roles: ['admin', 'user']
+  },
+  {
+    path: '/admin/announcements',
+    name: 'ManageAnnouncements',
+    element: AnnouncementList,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/announcements/new',
+    name: 'NewAnnouncement',
+    element: AnnouncementBuilder,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/announcements/edit',
+    name: 'EditAnnouncement',
+    element: AnnouncementBuilder,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/announcements/categories',
+    name: 'AnnouncementCategories',
+    element: AnnouncementCategories,
     roles: ['admin']
   },
 ]

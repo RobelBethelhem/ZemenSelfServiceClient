@@ -1,0 +1,733 @@
+/* ==========================================================================
+   Announcement showcase
+   --------------------------------------------------------------------------
+   Two presentations of the same deck:
+     .ann-overlay   full-screen, shown once after login
+     .ann-embedded  inline on the Announcements page
+   Scroll-snap does the paging; the depth/scale falloff on off-centre cards is
+   applied imperatively from JS (see AnnouncementShowcase) because CSS cannot
+   express "distance from the centre of the scroll container".
+   ========================================================================== */
+
+.ann-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2050;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(64, 120, 255, 0.22), transparent 60%),
+    radial-gradient(900px 500px at 95% 110%, rgba(0, 190, 160, 0.18), transparent 60%),
+    linear-gradient(160deg, #0b1220 0%, #111a2b 55%, #0a0f19 100%);
+  animation: ann-fade-in 260ms ease-out both;
+}
+
+@keyframes ann-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* --- header --------------------------------------------------------------- */
+
+.ann-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.6rem clamp(1rem, 4vw, 3rem) 0.5rem;
+  color: #eaf0ff;
+}
+
+.ann-head-eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fa6d8;
+  font-weight: 700;
+}
+
+.ann-head h2 {
+  margin: 0.15rem 0 0;
+  font-size: clamp(1.3rem, 2.6vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ann-head-sub {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  color: #9fb2d9;
+}
+
+.ann-required-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 176, 32, 0.16);
+  border: 1px solid rgba(255, 176, 32, 0.45);
+  color: #ffcd6b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ann-close {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #dbe5ff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.ann-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: rotate(90deg);
+}
+
+/* --- rail ---------------------------------------------------------------- */
+
+.ann-stage {
+  flex: 1 1 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 0;
+}
+
+.ann-rail {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.9rem, 2vw, 1.6rem);
+  width: 100%;
+  height: 100%;
+  padding: 1.2rem clamp(1rem, 50vw - 190px, 50vw);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  perspective: 1600px;
+}
+
+.ann-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.ann-rail.ann-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+}
+
+/* --- card ---------------------------------------------------------------- */
+
+.ann-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(240px, 78vw, 356px);
+  height: min(468px, 68vh);
+  border-radius: 26px;
+  overflow: hidden;
+  scroll-snap-align: center;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: #16203a;
+  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.7);
+  transform-style: preserve-3d;
+  /* transform + opacity are written by JS on scroll, so they are excluded from
+     this transition to avoid fighting the animation frame. */
+  transition:
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+  will-change: transform, opacity;
+  outline: none;
+}
+
+.ann-card:hover,
+.ann-card:focus-visible {
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 38px 72px -22px rgba(0, 0, 0, 0.8);
+}
+
+.ann-card-media {
+  position: absolute;
+  inset: 0;
+}
+
+.ann-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ann-card-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 5rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.16);
+  letter-spacing: -0.04em;
+}
+
+.ann-card-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(6, 10, 20, 0.96) 0%,
+    rgba(6, 10, 20, 0.82) 32%,
+    rgba(6, 10, 20, 0.28) 62%,
+    rgba(6, 10, 20, 0.08) 100%
+  );
+}
+
+.ann-card-body {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1.15rem 1.25rem 1.25rem;
+  color: #fff;
+}
+
+.ann-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.ann-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ann-card-title {
+  margin: 0.6rem 0 0.35rem;
+  font-size: 1.12rem;
+  font-weight: 700;
+  line-height: 1.32;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ann-card-summary {
+  font-size: 0.83rem;
+  line-height: 1.5;
+  color: rgba(233, 240, 255, 0.78);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ann-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.75rem;
+  color: rgba(226, 234, 255, 0.72);
+}
+
+.ann-readmore {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ann-card:hover .ann-readmore {
+  gap: 0.6rem;
+}
+
+.ann-readmore span {
+  transition: gap 180ms ease;
+}
+
+.ann-card-flag {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.ann-flag-required {
+  background: rgba(255, 165, 0, 0.22);
+  border: 1px solid rgba(255, 190, 80, 0.6);
+  color: #ffd58a;
+}
+
+.ann-flag-done {
+  background: rgba(40, 190, 120, 0.2);
+  border: 1px solid rgba(70, 220, 150, 0.55);
+  color: #8ff0c0;
+}
+
+.ann-flag-pinned {
+  background: rgba(120, 160, 255, 0.2);
+  border: 1px solid rgba(150, 185, 255, 0.55);
+  color: #c3d6ff;
+}
+
+/* --- rail nav + dots ----------------------------------------------------- */
+
+.ann-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(12, 18, 32, 0.72);
+  color: #e6edff;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition:
+    background 160ms ease,
+    opacity 160ms ease;
+}
+
+.ann-nav:hover {
+  background: rgba(30, 44, 74, 0.9);
+}
+
+.ann-nav:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.ann-nav-prev {
+  left: clamp(0.4rem, 2vw, 1.4rem);
+}
+
+.ann-nav-next {
+  right: clamp(0.4rem, 2vw, 1.4rem);
+}
+
+.ann-dots {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem 1.6rem;
+}
+
+.ann-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transition:
+    width 220ms ease,
+    background 220ms ease;
+}
+
+.ann-dot.is-active {
+  width: 26px;
+  background: #7aa2ff;
+}
+
+/* --- detail ------------------------------------------------------------- */
+
+.ann-detail-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 2060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.5rem, 3vw, 2rem);
+  background: rgba(4, 8, 16, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.ann-detail {
+  position: relative;
+  width: min(900px, 100%);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 50px 100px -30px rgba(0, 0, 0, 0.75);
+}
+
+.ann-detail-hero {
+  position: relative;
+  flex: 0 0 auto;
+  height: clamp(140px, 26vh, 240px);
+  background: #0f172a;
+}
+
+.ann-detail-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ann-detail-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(6, 10, 20, 0.9), rgba(6, 10, 20, 0.15));
+}
+
+.ann-detail-hero-body {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1rem clamp(1rem, 3vw, 1.9rem);
+  color: #fff;
+}
+
+.ann-detail-hero-body h3 {
+  margin: 0.45rem 0 0;
+  font-size: clamp(1.15rem, 2.4vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.ann-detail-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: clamp(1.1rem, 3vw, 1.9rem);
+  -webkit-overflow-scrolling: touch;
+}
+
+.ann-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #eceff4;
+}
+
+.ann-detail-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem clamp(1rem, 3vw, 1.9rem);
+  border-top: 1px solid #eceff4;
+  background: #fbfcfe;
+}
+
+.ann-detail-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 4;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(10, 16, 28, 0.55);
+  color: #fff;
+  cursor: pointer;
+  line-height: 1;
+  backdrop-filter: blur(8px);
+}
+
+.ann-detail-close:hover {
+  background: rgba(10, 16, 28, 0.8);
+}
+
+.ann-detail-step {
+  appearance: none;
+  border: 1px solid #dde2ea;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #384252;
+  cursor: pointer;
+}
+
+.ann-detail-step:hover:not(:disabled) {
+  background: #f3f6fb;
+}
+
+.ann-detail-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* --- blocks ------------------------------------------------------------- */
+
+.ann-blocks {
+  color: #212936;
+  font-size: 1rem;
+  line-height: 1.68;
+}
+
+.ann-block {
+  margin: 0 0 1.05rem;
+}
+
+.ann-blocks .ann-block:last-child {
+  margin-bottom: 0;
+}
+
+.ann-heading {
+  font-weight: 700;
+  line-height: 1.32;
+  color: #111827;
+  margin-top: 0.4rem;
+}
+
+.ann-paragraph {
+  margin: 0 0 0.7rem;
+}
+
+.ann-text .ann-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.ann-text a,
+.ann-callout a {
+  color: #0d6efd;
+  text-decoration: underline;
+}
+
+.ann-inline-code {
+  background: #f1f3f7;
+  border-radius: 5px;
+  padding: 0.08rem 0.34rem;
+  font-size: 0.9em;
+}
+
+.ann-image img,
+.ann-gallery img {
+  max-width: 100%;
+  display: inline-block;
+}
+
+.ann-image figcaption,
+.ann-gallery figcaption,
+.ann-video figcaption {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+.ann-gallery-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ann-gallery-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.ann-video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ann-video-fallback {
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.ann-video-fallback a {
+  color: #6b7280;
+}
+
+.ann-button {
+  display: inline-block;
+  padding: 0.6rem 1.15rem;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+.ann-button-primary {
+  background: #0d6efd;
+  color: #fff;
+}
+
+.ann-button-secondary {
+  background: #384252;
+  color: #fff;
+}
+
+.ann-button-outline {
+  border: 1px solid #0d6efd;
+  color: #0d6efd;
+}
+
+.ann-divider {
+  border: none;
+  border-top: 1px solid #e3e7ee;
+  opacity: 1;
+}
+
+.ann-divider-dashed {
+  border-top-style: dashed;
+}
+
+.ann-divider-gradient {
+  height: 2px;
+  border: none;
+  background: linear-gradient(90deg, transparent, #c7d2e5, transparent);
+}
+
+.ann-quote {
+  margin: 0 0 1.05rem;
+  padding: 0.15rem 0 0.15rem 1rem;
+  border-left: 3px solid #c7d2e5;
+  font-style: italic;
+  color: #374151;
+}
+
+.ann-quote cite {
+  display: block;
+  margin-top: 0.4rem;
+  font-style: normal;
+  font-size: 0.83rem;
+  color: #6b7280;
+}
+
+.ann-list {
+  padding-left: 1.35rem;
+}
+
+.ann-list li {
+  margin-bottom: 0.35rem;
+}
+
+.ann-callout {
+  border-left: 4px solid;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.ann-callout-title {
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.ann-callout .ann-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+/* --- embedded (Announcements page) variant ------------------------------- */
+
+.ann-embedded {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(700px 320px at 12% -20%, rgba(64, 120, 255, 0.16), transparent 60%),
+    linear-gradient(150deg, #101a2c 0%, #0d1523 100%);
+}
+
+.ann-embedded .ann-head {
+  padding-top: 1.2rem;
+}
+
+.ann-embedded .ann-card {
+  height: min(420px, 60vh);
+}
+
+.ann-embedded .ann-rail {
+  padding-left: clamp(1rem, 6vw, 4rem);
+  padding-right: clamp(1rem, 6vw, 4rem);
+  scroll-snap-type: x proximity;
+}
+
+.ann-empty {
+  padding: 2.5rem 1rem 3rem;
+  text-align: center;
+  color: #9fb2d9;
+}
+
+/* --- motion preferences -------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ann-overlay,
+  .ann-card,
+  .ann-close,
+  .ann-dot {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .ann-detail {
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .ann-detail-scrim {
+    padding: 0;
+  }
+
+  .ann-nav {
+    display: none;
+  }
+}

@@ -18,27 +18,15 @@
 
 // export default DefaultLayout
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import PushNotificationUtil from '../utils/pushNotificationUtil'
 import { AppContent, AppSidebar, AppFooter, AppHeader } from '../components/index'
+import AnnouncementGate from '../components/AnnouncementGate'
 
 const DefaultLayout = () => {
-  const accessToken = useSelector(state => state.user.accessToken)
-  const userRole = useSelector(state => state.user.role)
+  const accessToken = useSelector((state) => state.user.accessToken)
+  const userRole = useSelector((state) => state.user.role)
 
   // Initialize push notifications when component mounts
   useEffect(() => {
@@ -47,10 +35,10 @@ const DefaultLayout = () => {
         if (accessToken && userRole) {
           // Initialize push notifications
           const initialized = await PushNotificationUtil.initialize()
-          
+
           if (initialized) {
             console.log('Push notifications initialized successfully')
-            
+
             // Optional: Auto-subscribe users (uncomment if you want automatic subscription)
             /*
             const isSubscribed = await PushNotificationUtil.isSubscribed()
@@ -78,6 +66,9 @@ const DefaultLayout = () => {
 
   return (
     <div>
+      {/* Renders nothing unless this employee has an unseen or unacknowledged
+          announcement, so it is invisible on ordinary page loads. */}
+      <AnnouncementGate />
       <AppSidebar />
       <div className="wrapper d-flex flex-column min-vh-100">
         <AppHeader />
