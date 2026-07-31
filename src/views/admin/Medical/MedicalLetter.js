@@ -3209,6 +3209,16 @@ import {
 
   CSpinner,
 
+  CModal,
+
+  CModalHeader,
+
+  CModalTitle,
+
+  CModalBody,
+
+  CModalFooter,
+
 } from '@coreui/react';
 
 import { cilCheckCircle, cilX, cilUser, cilMedicalCross, cilPencil, cilHeart } from '@coreui/icons';
@@ -4025,6 +4035,17 @@ const MedicalLetter = () => {
 
 
 
+  // Shown only when HRIS has no place of assignment for this employee — a
+  // known data-cleansing gap that used to block the request outright.
+
+  const [placePromptOpen, setPlacePromptOpen] = useState(false);
+
+  const [manualPlace, setManualPlace] = useState('');
+
+  const [placeError, setPlaceError] = useState('');
+
+
+
   // Helper function to check if a provider belongs to Addis Ababa
 
   const isAddisAbabaProvider = (providerName) => {
@@ -4235,35 +4256,17 @@ const MedicalLetter = () => {
 
 
 
-  const handleSubmit = async (e) => {
-
-    e.preventDefault();
-
-    
-
-    if (!validateForm()) {
-
-      setStatus({
-
-        type: 'danger',
-
-        message: 'Please fill all required fields!'
-
-      });
-
-      return;
-
-    }
-
-    
+  // Single submit path, shared by the form and by the "type your place of
+  // assignment" prompt. `extra` carries the manually entered value on the
+  // retry — the form state itself is never polluted with it, so a later
+  // successful HRIS lookup is not shadowed by a stale manual entry.
+  const submitRequest = async (extra = {}) => {
 
     setIsLoading(true);
 
     setStatus(null);
 
     setProgress(0);
-
-
 
     try {
 
@@ -4279,45 +4282,79 @@ const MedicalLetter = () => {
 
         },
 
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, ...extra }),
 
       });
 
+      const payload = await response.json().catch(() => ({}));
 
+      if (!response.ok || payload.error) {
 
-      if (!response.ok) {
+        const failure = new Error(payload.message || 'Something went wrong');
 
-        const errorData = await response.json();
+        // Machine-readable code from the backend; the human message is only a
+        // fallback for anything it does not classify.
+        failure.code = payload.code;
 
-        throw new Error(errorData.message || 'Something went wrong');
+        throw failure;
 
       }
 
+      setStatus({
 
+        type: 'success',
 
-      const data = await response.json();
-
-      setStatus({ 
-
-        type: 'success', 
-
-        message: data.message || 'Medical Letter Request submitted successfully!'
+        message: payload.message || 'Medical Letter Request submitted successfully!'
 
       });
 
+      setPlacePromptOpen(false);
+
+      setManualPlace('');
+
+      setPlaceError('');
+
       resetForm();
+
+      return true;
 
     } catch (error) {
 
       console.error('Error submitting request:', error);
 
-      setStatus({ 
+      // HRIS has no place of assignment for this employee. Rather than a dead
+      // end, ask them for it — the value gets flagged for the approver to
+      // verify and to fix in HRIS.
+      if (error.code === 'PLACE_OF_ASSIGNMENT_REQUIRED') {
 
-        type: 'danger', 
+        setPlaceError('');
 
-        message: error.message || 'Failed to submit request. Please try again.' 
+        setPlacePromptOpen(true);
+
+        return false;
+
+      }
+
+      // Rejected inside the prompt (too short, disallowed characters): keep
+      // the prompt open and show why, instead of closing it and losing what
+      // they typed.
+      if (error.code === 'PLACE_OF_ASSIGNMENT_INVALID') {
+
+        setPlaceError(error.message);
+
+        return false;
+
+      }
+
+      setStatus({
+
+        type: 'danger',
+
+        message: error.message || 'Failed to submit request. Please try again.'
 
       });
+
+      return false;
 
     } finally {
 
@@ -4326,6 +4363,48 @@ const MedicalLetter = () => {
       setProgress(100);
 
     }
+
+  };
+
+
+
+  const handleSubmit = async (e) => {
+
+    e.preventDefault();
+
+    if (!validateForm()) {
+
+      setStatus({
+
+        type: 'danger',
+
+        message: 'Please fill all required fields!'
+
+      });
+
+      return;
+
+    }
+
+    await submitRequest();
+
+  };
+
+
+
+  const handleManualPlaceSubmit = async () => {
+
+    const value = manualPlace.trim();
+
+    if (value.length < 2) {
+
+      setPlaceError('Please enter your branch or department name.');
+
+      return;
+
+    }
+
+    await submitRequest({ place_of_assignment: value });
 
   };
 
@@ -5212,6 +5291,163 @@ const MedicalLetter = () => {
         </CCardBody>
 
       </CCard>
+
+
+
+      {/* Opened only when the backend reports that HRIS has no place of
+          assignment for this employee. Everything else about the request has
+          already been accepted at this point, so the retry sends the same form
+          plus this one field. */}
+
+      <CModal
+
+        visible={placePromptOpen}
+
+        onClose={() => {
+
+          if (!isLoading) setPlacePromptOpen(false);
+
+        }}
+
+        alignment="center"
+
+        backdrop="static"
+
+      >
+
+        <CModalHeader closeButton={!isLoading}>
+
+          <CModalTitle>One more detail needed</CModalTitle>
+
+        </CModalHeader>
+
+        <CModalBody>
+
+          <div className="d-flex align-items-start gap-2 mb-3">
+
+            <AlertTriangle size={20} style={{ color: '#f0ad4e', flexShrink: 0, marginTop: 2 }} />
+
+            <div style={{ fontSize: '0.92rem' }}>
+
+              Your <strong>Place of Assignment</strong> is missing from the HR system, so we
+
+              could not fill it in automatically. Please type it below and your request will
+
+              continue as normal.
+
+            </div>
+
+          </div>
+
+          <CFormLabel htmlFor="manualPlaceOfAssignment">
+
+            Place of Assignment <span style={{ color: '#dc3545' }}>*</span>
+
+          </CFormLabel>
+
+          <CFormInput
+
+            id="manualPlaceOfAssignment"
+
+            value={manualPlace}
+
+            maxLength={120}
+
+            placeholder="e.g. Bole Branch, or Human Capital Department"
+
+            disabled={isLoading}
+
+            invalid={!!placeError}
+
+            onChange={(e) => {
+
+              setManualPlace(e.target.value);
+
+              if (placeError) setPlaceError('');
+
+            }}
+
+            onKeyDown={(e) => {
+
+              if (e.key === 'Enter' && !isLoading) {
+
+                e.preventDefault();
+
+                handleManualPlaceSubmit();
+
+              }
+
+            }}
+
+          />
+
+          {placeError ? (
+
+            <div className="text-danger small mt-1">{placeError}</div>
+
+          ) : (
+
+            <div className="text-medium-emphasis small mt-1">
+
+              Enter the branch or department where you work. HR will verify this when your
+
+              request is approved, and correct the HR system.
+
+            </div>
+
+          )}
+
+        </CModalBody>
+
+        <CModalFooter>
+
+          <CButton
+
+            color="secondary"
+
+            variant="outline"
+
+            disabled={isLoading}
+
+            onClick={() => setPlacePromptOpen(false)}
+
+          >
+
+            Cancel
+
+          </CButton>
+
+          <CButton
+
+            color="primary"
+
+            disabled={isLoading || manualPlace.trim().length < 2}
+
+            onClick={handleManualPlaceSubmit}
+
+          >
+
+            {isLoading ? (
+
+              <>
+
+                <CSpinner size="sm" className="me-2" />
+
+                Submitting…
+
+              </>
+
+            ) : (
+
+              'Continue'
+
+            )}
+
+          </CButton>
+
+        </CModalFooter>
+
+      </CModal>
 
     </motion.div>
 

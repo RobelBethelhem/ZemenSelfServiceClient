@@ -5662,7 +5662,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, X as CloseIcon } from 'lucide-react';
+import { CheckCircle, XCircle, X as CloseIcon, AlertTriangle } from 'lucide-react';
 import { useApproveRequest, useRejectRequest } from './ApprovalEndpoint';
 import PreviewIcon from '@mui/icons-material/Preview';
 import { useNavigate } from 'react-router-dom';
@@ -6019,6 +6019,9 @@ const DetailPanel = ({ isOpen, onClose, data, entranceDirection }) => {
         'employee_first_name',
         'employee_middle_name',
         'employee_last_name',
+        // Rendered as the warning banner above the grid instead of a raw
+        // "place of assignment source: manual" tile.
+        'place_of_assignment_source',
       ];
       return (
         !excludedKeys.includes(key) &&
@@ -6102,6 +6105,48 @@ const DetailPanel = ({ isOpen, onClose, data, entranceDirection }) => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
             >
+              {/* HRIS data-gap flag. The employee was allowed to type their own
+                  Place of Assignment because HRIS had none; the approver has to
+                  see that before approving, and is the person who gets the HRIS
+                  record fixed. */}
+              {data?.request_type?.toLowerCase() === 'medical' &&
+                data?.place_of_assignment_source === 'manual' && (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2.5,
+                      mb: 3,
+                      borderRadius: '16px',
+                      border: '1px solid rgba(240, 173, 78, 0.55)',
+                      background: '#fff8e6',
+                      display: 'flex',
+                      gap: 2,
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    <AlertTriangle
+                      size={22}
+                      style={{ color: '#b8860b', flexShrink: 0, marginTop: 2 }}
+                    />
+                    <Box>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, color: '#8a6100' }}
+                      >
+                        Place of Assignment was entered by the employee
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, color: '#5f4708' }}>
+                        HRIS has no Place of Assignment for{' '}
+                        <strong>{data?.domain_user}</strong>, so they typed{' '}
+                        <strong>&ldquo;{data?.place_of_assignment}&rdquo;</strong> rather than
+                        being blocked from requesting. Please check it is correct before
+                        approving, and fix the HRIS record — once HRIS has the value this flag
+                        clears itself on the next approval.
+                      </Typography>
+                    </Box>
+                  </Paper>
+                )}
+
               <Box
                 sx={{
                   display: 'grid',
@@ -6218,6 +6263,12 @@ const ConfirmationModal = ({
   showApprovalDate = false,
   approvalDate,
   setApprovalDate,
+  // Medical-only: set when this request's Place of Assignment was typed in by
+  // the employee because HRIS had none. The approver confirms or corrects it
+  // here rather than having to reject and ask them to resubmit.
+  showManualPlace = false,
+  placeOfAssignment,
+  setPlaceOfAssignment,
 }) => {
   return (
     <Dialog
@@ -6258,6 +6309,38 @@ const ConfirmationModal = ({
                   helperText: 'Defaults to today. Back-dating is allowed; future dates are not.',
                 },
               }}
+            />
+          </Box>
+        )}
+        {showManualPlace && (
+          <Box
+            sx={{
+              mt: 2,
+              p: 2,
+              borderRadius: '12px',
+              background: '#fff8e6',
+              border: '1px solid rgba(240, 173, 78, 0.55)',
+            }}
+          >
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <AlertTriangle
+                size={18}
+                style={{ color: '#b8860b', flexShrink: 0, marginTop: 2 }}
+              />
+              <Typography variant="body2" sx={{ color: '#5f4708' }}>
+                HRIS has no <strong>Place of Assignment</strong> for this employee, so they
+                entered it themselves. Confirm or correct it before approving.
+              </Typography>
+            </Box>
+            <TextField
+              size="small"
+              fullWidth
+              sx={{ mt: 1.5 }}
+              label="Place of Assignment"
+              value={placeOfAssignment || ''}
+              onChange={(e) => setPlaceOfAssignment && setPlaceOfAssignment(e.target.value)}
+              inputProps={{ maxLength: 120 }}
+              helperText="If the HRIS record has since been fixed, that value wins automatically and this is ignored."
             />
           </Box>
         )}
@@ -6491,6 +6574,11 @@ const Example = () => {
 
   // Medical-only: admin-selected approval date (back-dating allowed, no future).
   const [approvalDate, setApprovalDate] = useState(dayjs());
+
+  // Medical-only: the Place of Assignment shown in the approve dialog when the
+  // employee had to type it in because HRIS had none. Seeded from the row when
+  // the dialog opens so the approver confirms rather than retypes.
+  const [approvalPlace, setApprovalPlace] = useState('');
 
   const [openRevokeModal, setOpenRevokeModal] = useState(false);
   const [selectedGuarantyRows, setSelectedGuarantyRows] = useState([]);
@@ -6750,15 +6838,24 @@ const Example = () => {
         isMedical && approvalDate && approvalDate.isValid && approvalDate.isValid()
           ? approvalDate.toISOString()
           : undefined;
+      // Only sent for a medical request whose place of assignment was typed in
+      // by the employee. The backend ignores it in every other case, and lets
+      // HRIS win if the record has since been corrected.
+      const isManualPlace =
+        isMedical && selectedRow.original.place_of_assignment_source === 'manual';
+
       await approveRequest({
         id: selectedRow.original.id,
         request_type: requestType,
         approval_date: approvalDateIso,
+        place_of_assignment:
+          isManualPlace && approvalPlace.trim() ? approvalPlace.trim() : undefined,
       });
       setOpenApproveModal(false);
       setSelectedRow(null);
       // Reset back to today for the next approval.
       setApprovalDate(dayjs());
+      setApprovalPlace('');
     }
   };
 
@@ -6847,6 +6944,11 @@ const Example = () => {
                         color="success"
                         onClick={() => {
                           setApprovalDate(dayjs());
+                          setApprovalPlace(
+                            row.original?.place_of_assignment_source === 'manual'
+                              ? row.original?.place_of_assignment || ''
+                              : ''
+                          );
                           setOpenApproveModal(true);
                           setSelectedRow(row);
                         }}
@@ -7200,6 +7302,12 @@ const Example = () => {
         }
         approvalDate={approvalDate}
         setApprovalDate={setApprovalDate}
+        showManualPlace={
+          (selectedRow?.original?.request_type || '').toLowerCase() === 'medical' &&
+          selectedRow?.original?.place_of_assignment_source === 'manual'
+        }
+        placeOfAssignment={approvalPlace}
+        setPlaceOfAssignment={setApprovalPlace}
       />
 
       {/* Updated Rejection Modal with Reason Field */}
