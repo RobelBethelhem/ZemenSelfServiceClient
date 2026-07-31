@@ -55,6 +55,10 @@ const AnnouncementFeedPage = React.lazy(() => import('./views/admin/Announcement
 const AnnouncementList = React.lazy(() => import('./views/admin/Announcement/AnnouncementList'));
 const AnnouncementBuilder = React.lazy(() => import('./views/admin/Announcement/AnnouncementBuilder'));
 const AnnouncementCategories = React.lazy(() => import('./views/admin/Announcement/AnnouncementCategories'));
+
+// --- HRIS reporting --------------------------------------------------------
+const HrisExplorer = React.lazy(() => import('./views/admin/HrisReport/HrisExplorer'));
+const HrisStandardReports = React.lazy(() => import('./views/admin/HrisReport/HrisStandardReports'));
 const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Chat', element: Chat },
@@ -307,6 +311,20 @@ const routes = [
     path: '/admin/announcements/categories',
     name: 'AnnouncementCategories',
     element: AnnouncementCategories,
+    roles: ['admin']
+  },
+
+  // --- HRIS reporting ------------------------------------------------------
+  {
+    path: '/admin/hris-reports',
+    name: 'HrisReports',
+    element: HrisExplorer,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/hris-reports/standard',
+    name: 'HrisStandardReports',
+    element: HrisStandardReports,
     roles: ['admin']
   },
 ]

@@ -305,6 +305,25 @@ const _nav = (userRole) => [
 
   {
     component: CNavGroup,
+    name: 'HRIS Reports',
+    to: '/admin/hris-reports',
+    icon: <CIcon icon={cilChartPie} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'Report Explorer',
+        to: '/admin/hris-reports'
+      },
+      {
+        component: CNavItem,
+        name: 'Standard Reports',
+        to: '/admin/hris-reports/standard'
+      },
+    ],
+  },
+
+  {
+    component: CNavGroup,
     name: 'Announcements',
     to: '/admin/announcements',
     icon: <CIcon icon={cilBell} customClassName="nav-icon" />,
