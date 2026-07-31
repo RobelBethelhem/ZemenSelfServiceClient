@@ -414,13 +414,25 @@ const HrisStandardReports = () => {
 
   if (status && !status.reports_installed) {
     return (
-      <CAlert color="warning">
-        <strong>The standard report pack is not installed.</strong>
-        <p className="mt-2 mb-0">
-          These eleven reports come from <code>HRIS_StandardReports.sql</code>. Install it against
-          the HRIS database, then run <code>EXEC dbo.usp_RefreshMovementSnapshot;</code>. The
-          Explorer works without it.
+      <CAlert color="info">
+        <strong>These eleven named reports need the optional SQL pack.</strong>
+        <p className="mt-2 mb-2">
+          Unlike the <strong>Report Explorer</strong>, which reads HRIS live and needs nothing
+          installed, these come from <code>HRIS_StandardReports.sql</code> — they depend on a
+          movement table that derives promotions and transfers from posting history.
         </p>
+        <p className="mb-2">
+          Most of what they answer is already reachable in the Explorer today: employees by
+          department, by job category and by marital status are all <em>Summary</em> with a
+          different group-by, the general-purpose list is <em>Employee list</em>, and turnover is{' '}
+          <em>Headcount movement</em>.
+        </p>
+        <div className="small mb-0">
+          To add the remainder, run <code>HRIS_Reporting.sql</code> then{' '}
+          <code>HRIS_StandardReports.sql</code> against HRIS — that needs CREATE rights — followed
+          by <code>EXEC dbo.usp_RefreshEmployeeReportSnapshot;</code> and{' '}
+          <code>EXEC dbo.usp_RefreshMovementSnapshot;</code>
+        </div>
       </CAlert>
     )
   }

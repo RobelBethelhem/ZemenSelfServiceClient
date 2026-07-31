@@ -101,6 +101,10 @@ const HrisExplorer = () => {
 
   const [filters, setFilters] = useState({})
   const [mode, setMode] = useState('summary')
+  // "live" sends the definitions inline with each query and needs nothing
+  // installed in HRIS. "installed" uses the stored procedures and their nightly
+  // snapshot — faster, but only offered once that pack is actually present.
+  const [engine, setEngine] = useState('live')
 
   const [running, setRunning] = useState(false)
   const [runError, setRunError] = useState('')
@@ -147,8 +151,9 @@ const HrisExplorer = () => {
         if (cancelled) return
         setStatus(st.status)
 
-        // No point loading dropdowns from a database that has no pack in it.
-        if (!st.status.core_installed) {
+        // Nothing has to be installed for the dropdowns or the reports — the
+        // definitions travel with each query — so boot continues regardless.
+        if (!st.status.live_available) {
           setBooting(false)
           return
         }
@@ -228,7 +233,7 @@ const HrisExplorer = () => {
       setRunning(true)
       setRunError('')
       try {
-        const base = cleanFilters(filters)
+        const base = { ...cleanFilters(filters), Engine: engine }
         if (mode === 'detail') {
           const body = {
             ...base,
@@ -247,11 +252,9 @@ const HrisExplorer = () => {
           const r = await runPivot({ accessToken, body: { ...base, ...pivotOpts } })
           setResult({ kind: 'pivot', rows: r.data || [], message: r.message })
         } else {
-          const body = { ...movementOpts }
-          if (!body.GroupBy)
-            delete body.GroupBy
-            // Movement takes only the organisation-shaped filters, not all 55.
-          ;[
+          // Movement takes only the organisation-shaped filters, not all 55 —
+          // an age or education filter has no meaning applied to a period.
+          const MOVEMENT_FILTERS = [
             'Presidents',
             'Departments',
             'Divisions',
@@ -261,8 +264,11 @@ const HrisExplorer = () => {
             'Gender',
             'EmploymentType',
             'Regions',
-          ].forEach((k) => {
-            if (base[k] !== undefined) body[k] = base[k]
+          ]
+          const body = { ...movementOpts, Engine: engine }
+          if (!body.GroupBy) delete body.GroupBy
+          MOVEMENT_FILTERS.forEach((key) => {
+            if (base[key] !== undefined) body[key] = base[key]
           })
           const r = await runMovement({ accessToken, body })
           setResult({ kind: 'movement', rows: r.data || [] })
@@ -278,6 +284,7 @@ const HrisExplorer = () => {
       accessToken,
       filters,
       mode,
+      engine,
       detailSort,
       detailPage,
       detailPageSize,
@@ -330,29 +337,20 @@ const HrisExplorer = () => {
     )
   }
 
-  if (status && !status.core_installed) {
+  if (status && !status.live_available) {
     return (
-      <CAlert color="warning">
-        <strong>The HRIS reporting pack is not installed yet.</strong>
-        <p className="mt-2 mb-2">
-          This module reads views and stored procedures that live in the HRIS database. Run these
-          against HRIS, in this order:
-        </p>
-        <pre className="mb-2" style={{ whiteSpace: 'pre-wrap', fontSize: '0.8rem' }}>
-          {`sqlcmd -S localhost -d HRIS -i "HRIS_Reporting.sql"
-sqlcmd -S localhost -d HRIS -i "HRIS_StandardReports.sql"
-sqlcmd -S localhost -d HRIS -Q "EXEC dbo.usp_RefreshEmployeeReportSnapshot; EXEC dbo.usp_RefreshMovementSnapshot;"`}
-        </pre>
-        <div className="small mb-0">
-          Then schedule both refreshes nightly, in that order. The reports read snapshot tables, so
-          without a refresh they return whatever was last built.
+      <CAlert color="danger">
+        <strong>Cannot read the HRIS database.</strong>
+        <div className="mt-1">
+          The portal reached SQL Server but could not read <code>dbo.EmployeeDetail</code>. Check
+          that the login in the backend&apos;s <code>.env</code> still has SELECT rights on HRIS.
         </div>
       </CAlert>
     )
   }
 
   const staleHours = hoursSince(status && status.snapshot_taken_at)
-  const isStale = staleHours !== null && staleHours > 36
+  const isStale = engine === 'installed' && staleHours !== null && staleHours > 36
 
   return (
     <CRow>
@@ -362,25 +360,51 @@ sqlcmd -S localhost -d HRIS -Q "EXEC dbo.usp_RefreshEmployeeReportSnapshot; EXEC
             <div>
               <strong>HRIS Reports</strong>
               <div className="small text-medium-emphasis">
-                {status && status.employee_rows !== null
-                  ? `${status.employee_rows.toLocaleString('en-GB')} employees in the snapshot`
-                  : 'Snapshot not built yet'}
-                {status && status.snapshot_taken_at
-                  ? ` · built ${fmtDateTime(status.snapshot_taken_at)}`
-                  : ''}
+                {engine === 'live'
+                  ? `${
+                      status && status.live_employee_rows !== null
+                        ? status.live_employee_rows.toLocaleString('en-GB')
+                        : '—'
+                    } employee records · read live from HRIS`
+                  : `${
+                      status && status.employee_rows !== null
+                        ? status.employee_rows.toLocaleString('en-GB')
+                        : '—'
+                    } employees in the snapshot${
+                      status && status.snapshot_taken_at
+                        ? ` · built ${fmtDateTime(status.snapshot_taken_at)}`
+                        : ''
+                    }`}
               </div>
             </div>
 
+            {engine === 'live' ? (
+              <CBadge color="success">Live — no snapshot, always current</CBadge>
+            ) : null}
             {isStale ? (
               <CBadge color="warning">
                 Snapshot is {Math.round(staleHours)}h old — schedule the nightly refresh
               </CBadge>
             ) : null}
-            {status && !status.reports_installed ? (
-              <CBadge color="secondary">Standard report pack not installed</CBadge>
-            ) : null}
 
-            <div className="ms-auto d-flex gap-2">
+            <div className="ms-auto d-flex align-items-center gap-2">
+              {/* Only offered once the optional SQL pack is present. Live is
+                  the default because it needs nothing installed and is never
+                  stale; the pack is faster but reads last night's snapshot. */}
+              {status && status.core_installed ? (
+                <CFormSelect
+                  size="sm"
+                  style={{ width: 190 }}
+                  value={engine}
+                  onChange={(e) => {
+                    setEngine(e.target.value)
+                    setResult(null)
+                  }}
+                >
+                  <option value="live">Live data</option>
+                  <option value="installed">Snapshot (faster)</option>
+                </CFormSelect>
+              ) : null}
               <CButton
                 color="secondary"
                 variant="outline"
@@ -389,22 +413,24 @@ sqlcmd -S localhost -d HRIS -Q "EXEC dbo.usp_RefreshEmployeeReportSnapshot; EXEC
               >
                 {showCaveats ? 'Hide' : 'Read'} the caveats
               </CButton>
-              <CButton
-                color="secondary"
-                variant="outline"
-                size="sm"
-                disabled={refreshing}
-                onClick={doRefresh}
-              >
-                {refreshing ? (
-                  <>
-                    <CSpinner size="sm" className="me-2" />
-                    Rebuilding…
-                  </>
-                ) : (
-                  'Rebuild snapshot'
-                )}
-              </CButton>
+              {status && status.core_installed ? (
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  size="sm"
+                  disabled={refreshing}
+                  onClick={doRefresh}
+                >
+                  {refreshing ? (
+                    <>
+                      <CSpinner size="sm" className="me-2" />
+                      Rebuilding…
+                    </>
+                  ) : (
+                    'Rebuild snapshot'
+                  )}
+                </CButton>
+              ) : null}
             </div>
           </CCardBody>
         </CCard>
