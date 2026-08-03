@@ -320,7 +320,7 @@ const GuarantyLetterRequestForm = () => {
     >
       <CCard className="shadow-lg border-0">
         <CCardHeader className="bg-primary text-white">
-          <h4 className="mb-0">Guaranty Letter Request</h4>
+          <h4 className="mb-0">የዋስትና ደብዳቤ ጥያቄ</h4>
           <InfiniteScrollText text="Fill out the form below to request a guaranty letter. All fields marked with * are required." />
         </CCardHeader>
         <CCardBody>
@@ -353,26 +353,26 @@ const GuarantyLetterRequestForm = () => {
                     <CCol xs={12}>
                       <h5 className="mb-3">
                         <CIcon icon={cilUser} className="me-2" />
-                        Employee Information
+                        የሠራተኛው መረጃ
                       </h5>
                     </CCol>
                     <CCol md={4}>
-                      {renderFormInput('employee_first_name', 'First Name', true)}
+                      {renderFormInput('employee_first_name', 'ስም', true)}
                     </CCol>
                     <CCol md={4}>
-                      {renderFormInput('employee_middle_name', 'Middle Name', true)}
+                      {renderFormInput('employee_middle_name', 'የአባት ስም', true)}
                     </CCol>
                     <CCol md={4}>
-                      {renderFormInput('employee_last_name', 'Last Name', true)}
+                      {renderFormInput('employee_last_name', 'የአያት ስም', true)}
                     </CCol>
                     <CCol xs={12} className="mt-3">
-                      <CFormLabel htmlFor="employee_description">Short Description</CFormLabel>
+                      <CFormLabel htmlFor="employee_description">አጭር መግለጫ</CFormLabel>
                       <CFormTextarea
                         id="employee_description"
                         rows="3"
                         value={formData.employee_description}
                         onChange={handleInputChange}
-                        placeholder="Short description (Optional)"
+                        placeholder="አጭር መግለጫ (Optional)"
                         className="shadow-sm"
                       />
                     </CCol>
@@ -394,20 +394,20 @@ const GuarantyLetterRequestForm = () => {
                     <CCol xs={12}>
                       <h5 className="mb-3">
                         <CIcon icon={cilBriefcase} className="me-2" />
-                        Guaranty Information
+                        የዋሱ/ሷ ሙሉ መረጃ  
                       </h5>
                     </CCol>
                     <CCol md={3}>
-                      {renderFormInput('guaranty_first_name', 'First Name', true)}
+                      {renderFormInput('guaranty_first_name', 'ስም', true)}
                     </CCol>
                     <CCol md={3}>
-                      {renderFormInput('guaranty_middle_name', 'Middle Name', true)}
+                      {renderFormInput('guaranty_middle_name', 'የአባት ስም', true)}
                     </CCol>
                     <CCol md={3}>
-                      {renderFormInput('guaranty_last_name', 'Last Name', true)}
+                      {renderFormInput('guaranty_last_name', 'የአያት ስም', true)}
                     </CCol>
                     <CCol md={3}>
-                      {renderFormInput('guaranty_organazation', 'Organization', true)}
+                      {renderFormInput('guaranty_organazation', 'የድርጅቱ ስም', true)}
                     </CCol>
                   </CRow>
 
@@ -415,14 +415,14 @@ const GuarantyLetterRequestForm = () => {
                     <CCol xs={12}>
                       <h5 className="mb-3">
                         <CIcon icon={cilLocationPin} className="me-2" />
-                        Organization Address
+                        የድርጅቱ አድራሻ
                       </h5>
                     </CCol>
                     <CCol md={6}>
-                      {renderFormInput('employee_organization_location', 'Organization Address', true)}
+                      {renderFormInput('employee_organization_location', 'ድርጅቱ የሚገኝበት ቦታ (specific location)', true)}
                     </CCol>
                     <CCol md={6}>
-                      {renderFormInput('guaranty_organazation_cities', 'Organization Cities', true)}
+                      {renderFormInput('guaranty_organazation_cities', 'ድርጅቱ የሚገኝበት ከተማ', true)}
                     </CCol>
                   </CRow>
                 </motion.div>
