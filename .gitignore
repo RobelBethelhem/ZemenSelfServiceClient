@@ -10,6 +10,9 @@ yarn.lock
 
 # production
 /build
+# Staging copies the deploy leaves behind on the server alongside /build.
+/build_latest
+/buildd
 
 # misc
 .eslintcache
