@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(rm -f D:/temp_salary.xlsx D:/temp_salary.docx /tmp/salary.xlsx /tmp/salary.docx)",
-      "Bash(rm -rf /tmp/xlsx_extract /tmp/docx_extract)"
-    ]
-  }
-}
