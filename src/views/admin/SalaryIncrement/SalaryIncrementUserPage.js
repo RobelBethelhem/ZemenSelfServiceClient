@@ -17,6 +17,7 @@ import {
   CModalBody,
   CModalFooter,
   CModalTitle,
+  CFormCheck,
 } from '@coreui/react';
 import jsPDF from 'jspdf';
 import SalaryIncrementLetterPrint from './SalaryIncrementLetterPrint';
@@ -32,7 +33,7 @@ const API_BASE = `${API_ROOT}/salary-increment`;
 // the user is attesting to. The FY label is filled dynamically from the
 // active commitment period.
 const buildCommitmentAcknowledgment = (fyLabel) =>
-  `I acknowledge the Bank's policy requiring six (6) months of obligatory service to remain eligible for the FY ${fyLabel} Bonus Payment. This commitment becomes effective upon the signing of this agreement. I hereby confirm my voluntary agreement to these terms to proceed with the processing of my bonus. You may change your decision (Decline ↔ Accept) within the deadline.`;
+  `I acknowledge the Bank's policy requiring six (6) months of obligatory service to remain eligible for the FY ${fyLabel} Bonus Payment. The Mandatory Service Period commences on the bonus payment date. I hereby confirm my voluntary agreement to these terms to proceed with the processing of my bonus. You may change your decision (Decline ↔ Accept) within the deadline.`;
 
 // Full ZB Obligatory Service Agreement — shown in the "View Full Agreement"
 // modal and rendered into the downloadable PDF. Same text the bank publishes
@@ -40,7 +41,20 @@ const buildCommitmentAcknowledgment = (fyLabel) =>
 // dynamically from the user's HRIS record and the active commitment period.
 const FULL_AGREEMENT_TITLE = 'ZEMEN BANK S.C.';
 const FULL_AGREEMENT_SUBTITLE = 'OBLIGATORY SERVICE AGREEMENT FOR BONUS PAYMENT';
-const AGREEMENT_VERSION = 'v1.0';
+
+// Bumped from v1.0 when the Legal team revised the wording: both parties are
+// now named by address, and clauses 4-8 were expanded. The version travels
+// with every decision so an acceptance can always be tied to the exact text
+// that was on screen — "they accepted" only means something alongside
+// "accepted what".
+const AGREEMENT_VERSION = 'v2.0';
+
+// The Bank's registered address, as supplied by the Legal team. A constant
+// rather than a lookup: it is the Bank's own address on its own agreement, and
+// there is no HRIS record to read it from.
+const BANK_ADDRESS =
+  'Addis Ababa City, Lideta Sub-City, Woreda 08, House No. New, ' +
+  'Telephone No. 011-5-53-93-61, P.O. Box 1212';
 
 // Renders the Ethiopian fiscal-year label "YYYY/YY". The backend's /my
 // response now carries this as period.fiscal_year_label; we only fall back
@@ -71,48 +85,68 @@ const buildAgreementSections = ({ employeeInfo, period, decision }) => {
   const acceptedTime = decidedAt
     ? decidedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     : '[Pending acceptance]';
-  // Effective date = July 1 of (fiscal_year - 1) — start of the Ethiopian
-  // fiscal year. The backend sends this on period.effective_date as ISO,
-  // but we also compute it locally from period.fiscal_year as a safety net
-  // in case the response is missing the field (older backend, mid-deploy).
-  const fmtEffective = (d) =>
-    d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-  let effective = '[Auto-generated upon ESS Acceptance]';
-  if (period && period.effective_date) {
-    effective = fmtEffective(new Date(period.effective_date));
-  } else if (period && period.fiscal_year) {
-    effective = fmtEffective(new Date(Date.UTC(period.fiscal_year - 1, 6, 1)));
-  }
+  // The Effective Date line was dropped in the v2.0 revision: the Mandatory
+  // Service Period now runs from the bonus payment date (clause 2.1), not from
+  // an agreement effective date, so printing one alongside it was misleading.
+
+  // The execution date is the day the employee accepts. Before that it stays
+  // an explicit placeholder rather than today's date, so an unaccepted
+  // agreement never looks as though it has already been executed.
+  const executionDate = decidedAt
+    ? decidedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '____ day of __________, ' + new Date().getFullYear();
+
+  // Pulled from the employee's HRIS address record by the backend. When HRIS
+  // has no address the line stays a blank rule — the same convention the
+  // paper agreement uses — rather than silently printing nothing.
+  const employeeAddress =
+    (employeeInfo && employeeInfo.address) || '____________________________________';
 
   return [
-    { type: 'p', text: 'This Obligatory Service Agreement ("Agreement") is made between:' },
-    { type: 'p', text: `ZEMEN BANK (hereinafter referred to as "the Bank") and ${fullName}, (hereinafter referred to as "the Employee").` },
-    // { type: 'p', text: `Effective Date: ${effective}` },
+    {
+      type: 'p',
+      text: `This Obligatory Service Agreement (hereinafter referred to as the "Agreement") is entered into on this ${executionDate}, at Addis Ababa, Ethiopia by and between:`,
+    },
+    {
+      type: 'p',
+      text: `ZEMEN BANK, Address ${BANK_ADDRESS} (hereinafter referred to as "the Bank")`,
+    },
+    { type: 'p', text: 'And' },
+    {
+      type: 'p',
+      text: `${fullName}, Employee ID: ${employeeId}, Address ${employeeAddress} (hereinafter referred to as "the Employee")`,
+    },
     { type: 'h', text: '1. Purpose' },
-    { type: 'p', text: `This Agreement is made per the policy of the Bank and establishes the terms and conditions under which the Employee shall receive a Bonus Payment for the Financial Year ${fyLabel}, subject to a mandatory service commitment.` },
+    { type: 'p', text: `This Agreement establishes the terms and conditions under which the Employee shall receive a Bonus Payment for the Financial Year ${fyLabel}. The bonus payment is granted pursuant to the Bank's internal policies and is strictly subject to the Employee's fulfillment of the mandatory service commitment specified herein.` },
     { type: 'h', text: '2. Obligatory Service Commitment' },
-    { type: 'p', text: 'The Employee agrees to serve the Bank for a continuous period of six (6) months, commencing from the date of bonus payment .' },
+    { type: 'p', text: '2.1 In accordance with the Bank’s policy and the consideration of receiving the Bonus Payment, the Employee irrevocably commits to remain continuously employed in the Bank for an obligatory period of 6 (six) months commencing on bonus payment date (hereinafter referred to as the "Mandatory Service Period").' },
+    { type: 'p', text: '2.2 The Employee acknowledges that this mandatory service commitment is an essential condition for entitlement to the Bonus Payment.' },
     { type: 'h', text: '3. Bonus Payment' },
-    { type: 'p', text: '3.1 The Bank shall process and pay the Employee a bonus in accordance with its approved bonus payment guideline of this specific year.' },
-    { type: 'p', text: '3.2 The bonus payment is conditional upon acceptance of this Agreement to fulfill of the full obligatory.' },
+    { type: 'p', text: '3.1 The Bank shall process and pay the Employee a bonus in accordance with its approved bonus payment guideline of this specific year subject to applicable statutory tax deductions in accordance with applicable tax laws.' },
+    { type: 'p', text: '3.2 The bonus payment is conditional upon acceptance of this Agreement and willingness to fulfill the full obligatory service period.' },
     { type: 'h', text: '4. Early Termination and Repayment Obligation' },
     { type: 'p', text: '4.1 If the Employee resigns, terminates employment for reasons attributable to the Employee, or is dismissed for misconduct before completing the six (6) month service period, the Employee shall repay the full bonus amount received.' },
     { type: 'p', text: '4.2 Repayment shall be made on a gross basis, including all applicable taxes and deductions. Taxes already remitted will not reduce the repayment obligation. The Employee is responsible for pursuing any tax adjustments.' },
     { type: 'h', text: '5. Recovery Mechanism' },
-    { type: 'p', text: 'The Bank may recover amounts through salary deductions, terminal benefits, or other payments due to the staff. Any remaining balance must be settled within thirty (30) days after resignation.' },
+    { type: 'p', text: '5.1 In the event a repayment obligation is triggered under Section 4, the Employee authorizes the Bank to set off and deduct the owed refund amount from the Employee’s final settlement payments (including salary, terminal benefits, or other payments due to the staff).' },
+    { type: 'p', text: '5.2 If the final settlement or wage deduction is insufficient to satisfy the full refund amount, the Employee agrees to settle the remaining balance within 30 calendar days after resignation/separation.' },
     { type: 'h', text: '6. Exceptions' },
-    { type: 'p', text: 'Repayment shall not apply in cases of death, or permanent disability, or termination of contract by the Bank for causes not related to the employee\'s performance or discipline.' },
+    { type: 'p', text: 'Repayment shall not apply in cases of death, permanent disability, or termination of contract by the Bank for causes not related to the employee’s performance or discipline.' },
     { type: 'h', text: '7. Acknowledgment and Consent' },
-    { type: 'p', text: 'The Employee confirms understanding and voluntary acceptance of all terms, including the financial implications of gross repayment.' },
-    { type: 'h', text: '8. Digital Acceptance' },
+    { type: 'p', text: '7.1 The Employee confirms understanding and voluntary acceptance of all terms, including the financial implications of gross repayment.' },
+    { type: 'p', text: '7.2 This Agreement constitutes the entire understanding between the parties regarding bonus payment and supersedes all prior agreements, representations, or understandings, whether written or oral.' },
+    { type: 'h', text: '8. Dispute Resolution & Governing Law' },
+    { type: 'p', text: '8.1 This Agreement shall be governed by, construed, and enforced in accordance with the laws of the Federal Democratic Republic of Ethiopia.' },
+    { type: 'p', text: '8.2 The parties shall make good faith efforts to resolve any dispute arising out of or in connection with this Agreement through direct negotiations.' },
+    { type: 'p', text: '8.3 If an amicable resolution cannot be reached within 15 days, the dispute shall be submitted to the competent Court of appropriate jurisdiction in Ethiopia.' },
+    { type: 'h', text: '9. Digital Acceptance' },
     { type: 'p', text: 'This Agreement becomes binding upon acceptance in the ESS system. System records shall serve as proof of acceptance.' },
     { type: 'divider' },
     { type: 'h', text: 'Digital Execution and Acceptance' },
-    { type: 'p', text: 'This Agreement is executed electronically through the Bank\'s Employee Self-Service (ESS) system.' },
-    { type: 'p', text: 'By selecting "I Agree", the Employee:' },
+    { type: 'p', text: 'This Agreement is executed electronically through the Bank’s Employee Self-Service (ESS) system. By selecting "I Agree", the Employee:' },
     { type: 'bullet', text: 'Provides explicit electronic consent to this Agreement;' },
     { type: 'bullet', text: 'Acknowledges that such consent constitutes a legally binding signature equivalent to a handwritten signature;' },
-    { type: 'bullet', text: 'Confirms that they have read, understood, and accepted all terms and conditions.' },
+    { type: 'bullet', text: 'Confirms that they have read, understood, and accepted all terms and conditions of the contract.' },
     { type: 'p', text: 'The Bank and the Employee agree that this electronic acceptance shall be valid, enforceable, and admissible for all legal and administrative purposes.' },
     { type: 'divider' },
     { type: 'h', text: 'System-Generated Acceptance Record' },
@@ -273,6 +307,21 @@ const SalaryIncrementUserPage = () => {
   const [submitting, setSubmitting] = useState(null); // 'Approved' | 'Rejected' | null
   const [showAgreement, setShowAgreement] = useState(false);
 
+  // The employee must open the full Agreement and then tick the confirmation
+  // before either decision button becomes available. Both halves matter: the
+  // Acknowledgment clause turns on them having READ it, so a tick alone —
+  // with the text never opened — would be a confirmation of nothing.
+  //
+  // This gates Decline as well as Accept. Declining forfeits the bonus, so it
+  // is no less of a decision to make uninformed.
+  const [hasOpenedAgreement, setHasOpenedAgreement] = useState(false);
+  const [readConfirmed, setReadConfirmed] = useState(false);
+
+  const openAgreement = () => {
+    setHasOpenedAgreement(true);
+    setShowAgreement(true);
+  };
+
   const loadMy = async () => {
     setLoading(true);
     setError(null);
@@ -304,6 +353,13 @@ const SalaryIncrementUserPage = () => {
 
   const submitDecision = async (which) => {
     if (!period) return;
+    // Belt and braces — the buttons are disabled until this holds, but a
+    // decision must never reach the server without the confirmation that is
+    // recorded alongside it.
+    if (!readConfirmed) {
+      toast.error('Please open the full Agreement and confirm you have read it first.');
+      return;
+    }
     setSubmitting(which);
     try {
       const resp = await fetch(`${API_BASE}/decision`, {
@@ -315,6 +371,10 @@ const SalaryIncrementUserPage = () => {
         body: JSON.stringify({
           fiscal_year: period.fiscal_year,
           decision: which,
+          // Stored on the decision record so an acceptance can be tied to the
+          // exact revision of the text the employee saw.
+          agreement_version: AGREEMENT_VERSION,
+          agreement_read_confirmed: true,
         }),
       });
       const body = await resp.json().catch(() => ({}));
@@ -422,10 +482,42 @@ const SalaryIncrementUserPage = () => {
                     color="link"
                     className="p-0"
                     style={{ fontSize: 13 }}
-                    onClick={() => setShowAgreement(true)}
+                    onClick={openAgreement}
                   >
                     View Full Agreement →
                   </CButton>
+                </div>
+
+                {/* Read confirmation. The checkbox stays disabled until the
+                    Agreement has actually been opened, so ticking it is a
+                    statement about something the employee has seen. */}
+                <div
+                  className="mb-3 p-3"
+                  style={{
+                    border: '1px solid #e3e7ee',
+                    borderRadius: 8,
+                    background: readConfirmed ? '#f2f9f4' : '#fbfcfe',
+                  }}
+                >
+                  <CFormCheck
+                    id="agreementReadConfirm"
+                    checked={readConfirmed}
+                    disabled={!hasOpenedAgreement}
+                    onChange={(e) => setReadConfirmed(e.target.checked)}
+                    label={
+                      <span style={{ fontSize: 14 }}>
+                        I confirm that I have <strong>read and understood</strong> the full
+                        Obligatory Service Agreement, including the repayment obligation in
+                        Section 4 and the recovery mechanism in Section 5.
+                      </span>
+                    }
+                  />
+                  {!hasOpenedAgreement && (
+                    <div className="text-medium-emphasis mt-2" style={{ fontSize: 12.5 }}>
+                      Open <strong>View Full Agreement</strong> above to enable this
+                      confirmation.
+                    </div>
+                  )}
                 </div>
 
                 {decision ? (
@@ -443,7 +535,7 @@ const SalaryIncrementUserPage = () => {
                     </div>
                     <CButton
                       color={decision.decision === 'Approved' ? 'warning' : 'success'}
-                      disabled={!!submitting}
+                      disabled={!!submitting || !readConfirmed}
                       onClick={() =>
                         submitDecision(
                           decision.decision === 'Approved' ? 'Rejected' : 'Approved'
@@ -462,34 +554,42 @@ const SalaryIncrementUserPage = () => {
                     </CButton>
                   </CAlert>
                 ) : (
-                  <div className="d-flex" style={{ gap: 12 }}>
-                    <CButton
-                      color="success"
-                      disabled={submitting !== null}
-                      onClick={() => submitDecision('Approved')}
-                    >
-                      {submitting === 'Approved' ? (
-                        <>
-                          <CSpinner size="sm" className="me-2" /> Submitting…
-                        </>
-                      ) : (
-                        'Accept'
-                      )}
-                    </CButton>
-                    <CButton
-                      color="warning"
-                      disabled={submitting !== null}
-                      onClick={() => submitDecision('Rejected')}
-                    >
-                      {submitting === 'Rejected' ? (
-                        <>
-                          <CSpinner size="sm" className="me-2" /> Submitting…
-                        </>
-                      ) : (
-                        'Decline'
-                      )}
-                    </CButton>
-                  </div>
+                  <>
+                    <div className="d-flex" style={{ gap: 12 }}>
+                      <CButton
+                        color="success"
+                        disabled={submitting !== null || !readConfirmed}
+                        onClick={() => submitDecision('Approved')}
+                      >
+                        {submitting === 'Approved' ? (
+                          <>
+                            <CSpinner size="sm" className="me-2" /> Submitting…
+                          </>
+                        ) : (
+                          'Accept'
+                        )}
+                      </CButton>
+                      <CButton
+                        color="warning"
+                        disabled={submitting !== null || !readConfirmed}
+                        onClick={() => submitDecision('Rejected')}
+                      >
+                        {submitting === 'Rejected' ? (
+                          <>
+                            <CSpinner size="sm" className="me-2" /> Submitting…
+                          </>
+                        ) : (
+                          'Decline'
+                        )}
+                      </CButton>
+                    </div>
+                    {!readConfirmed && (
+                      <div className="text-medium-emphasis mt-2" style={{ fontSize: 12.5 }}>
+                        Both options unlock once you have opened the Agreement and confirmed
+                        you have read it.
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
