@@ -76,7 +76,10 @@ const buildAgreementSections = ({ employeeInfo, period, decision }) => {
         .filter(Boolean)
         .join(' ') || '[EMPLOYEE NAME]'
     : '[EMPLOYEE NAME]';
-  const employeeId = (employeeInfo && employeeInfo.employee_id) || '[Employee ID]';
+  // Employee ID comes from HRIS only. The backend deliberately does NOT
+  // substitute the portal's own value when HRIS cannot be matched, because a
+  // plausible wrong number on a legal agreement is worse than a visible gap.
+  const employeeId = (employeeInfo && employeeInfo.employee_id) || '____________';
   const fyLabel = fiscalYearLabel(period);
   const decidedAt = decision && decision.decided_at ? new Date(decision.decided_at) : null;
   const acceptedDate = decidedAt
@@ -487,6 +490,27 @@ const SalaryIncrementUserPage = () => {
                     View Full Agreement →
                   </CButton>
                 </div>
+
+                {/* HRIS is the only source for the identity printed on the
+                    agreement. When it cannot be matched the fields are left
+                    blank rather than filled from the portal's own record, so
+                    the gap has to be surfaced instead of passing unnoticed. */}
+                {employeeInfo &&
+                  (employeeInfo.employee_id_source === 'missing' ||
+                    employeeInfo.address_source === 'missing') && (
+                    <CAlert color="warning" className="py-2" style={{ fontSize: 13 }}>
+                      Some of your details are missing from the HR system and will appear blank
+                      on the agreement
+                      {employeeInfo.employee_id_source === 'missing' &&
+                      employeeInfo.address_source === 'missing'
+                        ? ' (Employee ID and address)'
+                        : employeeInfo.employee_id_source === 'missing'
+                          ? ' (Employee ID)'
+                          : ' (address)'}
+                      . You can still record your decision — please ask HR to complete your
+                      record.
+                    </CAlert>
+                  )}
 
                 {/* Read confirmation. The checkbox stays disabled until the
                     Agreement has actually been opened, so ticking it is a
