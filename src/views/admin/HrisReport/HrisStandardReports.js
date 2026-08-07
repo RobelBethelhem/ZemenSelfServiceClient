@@ -21,6 +21,7 @@ import {
   CNavLink,
 } from '@coreui/react'
 import ReportTable from './ReportTable'
+import ReportChart from './ReportChart'
 import {
   fetchReportStatus,
   fetchReportMeta,
@@ -226,6 +227,52 @@ const REPORTS = [
   },
 ]
 
+// Which result set of which report is worth drawing, and how. Only the sets
+// where the shape carries a finding — a distribution or a series over time. A
+// detail listing of individual employees is a table, not a chart.
+const CHARTS = {
+  'by-department': {
+    set: 'groups',
+    label: 'GroupName',
+    series: [{ key: 'Headcount' }],
+    type: 'bar',
+  },
+  'by-job-category': {
+    set: 'groups',
+    label: 'GroupName',
+    series: [{ key: 'Headcount' }],
+    type: 'bar',
+  },
+  'by-marital-status': {
+    set: 'groups',
+    label: 'GroupName',
+    series: [{ key: 'Headcount' }],
+    type: 'bar',
+  },
+  manpower: { set: 'structure', label: 'Department', series: [{ key: 'Headcount' }], type: 'bar' },
+  terminated: {
+    set: 'summary',
+    label: 'Termination reason',
+    series: [{ key: 'Leavers' }],
+    type: 'bar',
+  },
+  discipline: { set: 'summary', label: 'Action taken', series: [{ key: 'Cases' }], type: 'bar' },
+  promotion: { set: 'summary', label: 'Move type', series: [{ key: 'Movements' }], type: 'bar' },
+  transfer: { set: 'summary', label: 'To department', series: [{ key: 'Moves' }], type: 'bar' },
+  turnover: {
+    set: 'series',
+    label: 'PeriodLabel',
+    series: [{ key: 'Closing' }, { key: 'Joiners' }, { key: 'Leavers' }],
+    type: 'line',
+  },
+  monthly: {
+    set: 'byDepartment',
+    label: 'Department',
+    series: [{ key: 'Joiners' }, { key: 'Leavers' }],
+    type: 'bar',
+  },
+}
+
 const initialValues = (report) => {
   const out = {}
   report.fields.forEach((f) => {
@@ -412,26 +459,16 @@ const HrisStandardReports = () => {
     return <CAlert color="danger">{bootError}</CAlert>
   }
 
-  if (status && !status.reports_installed) {
+  // The eleven reports now run live, the same way the Explorer does — the SQL
+  // pack is an optional accelerator, not a prerequisite. Only a database the
+  // portal cannot read at all is a genuine blocker.
+  if (status && !status.live_available) {
     return (
-      <CAlert color="info">
-        <strong>These eleven named reports need the optional SQL pack.</strong>
-        <p className="mt-2 mb-2">
-          Unlike the <strong>Report Explorer</strong>, which reads HRIS live and needs nothing
-          installed, these come from <code>HRIS_StandardReports.sql</code> — they depend on a
-          movement table that derives promotions and transfers from posting history.
-        </p>
-        <p className="mb-2">
-          Most of what they answer is already reachable in the Explorer today: employees by
-          department, by job category and by marital status are all <em>Summary</em> with a
-          different group-by, the general-purpose list is <em>Employee list</em>, and turnover is{' '}
-          <em>Headcount movement</em>.
-        </p>
-        <div className="small mb-0">
-          To add the remainder, run <code>HRIS_Reporting.sql</code> then{' '}
-          <code>HRIS_StandardReports.sql</code> against HRIS — that needs CREATE rights — followed
-          by <code>EXEC dbo.usp_RefreshEmployeeReportSnapshot;</code> and{' '}
-          <code>EXEC dbo.usp_RefreshMovementSnapshot;</code>
+      <CAlert color="danger">
+        <strong>Cannot read the HRIS database.</strong>
+        <div className="mt-1">
+          The portal reached SQL Server but could not read <code>dbo.EmployeeDetail</code>. Check
+          that the login in the backend&apos;s <code>.env</code> still has SELECT rights on HRIS.
         </div>
       </CAlert>
     )
@@ -530,6 +567,14 @@ const HrisStandardReports = () => {
                       </CNavItem>
                     ))}
                   </CNav>
+                ) : null}
+                {CHARTS[active.key] && CHARTS[active.key].set === activeSet ? (
+                  <ReportChart
+                    rows={sets[activeSet] || []}
+                    labelKey={CHARTS[active.key].label}
+                    series={CHARTS[active.key].series}
+                    type={CHARTS[active.key].type}
+                  />
                 ) : null}
                 <ReportTable
                   rows={sets[activeSet] || []}

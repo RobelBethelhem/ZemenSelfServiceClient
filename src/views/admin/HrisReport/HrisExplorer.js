@@ -18,20 +18,9 @@ import {
   CNavItem,
   CNavLink,
 } from '@coreui/react'
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts'
 import FilterPanel from './FilterPanel'
 import ReportTable from './ReportTable'
+import ReportChart from './ReportChart'
 import {
   fetchReportStatus,
   fetchReportMeta,
@@ -296,12 +285,8 @@ const HrisExplorer = () => {
 
   // --- charts -------------------------------------------------------------
 
-  const summaryChart = useMemo(() => {
-    if (!result || result.kind !== 'summary') return []
-    return result.rows
-      .slice(0, 25)
-      .map((r) => ({ name: r.GroupName, Headcount: r.Headcount, AvgAge: r.AvgAge }))
-  }, [result])
+  // The summary chart reads result.rows directly — ReportChart does its own
+  // shaping and category cap, so there is nothing left to pre-compute.
 
   const movementChart = useMemo(() => {
     if (!result || result.kind !== 'movement') return []
@@ -780,29 +765,13 @@ const HrisExplorer = () => {
                       : ''}
                   </CAlert>
                 ) : null}
-                {summaryChart.length > 1 ? (
-                  <div style={{ width: '100%', height: 260 }} className="mb-3">
-                    <ResponsiveContainer>
-                      <BarChart
-                        data={summaryChart}
-                        margin={{ top: 8, right: 8, bottom: 60, left: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis
-                          dataKey="name"
-                          angle={-35}
-                          textAnchor="end"
-                          interval={0}
-                          height={70}
-                          tick={{ fontSize: 11 }}
-                        />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Bar dataKey="Headcount" fill="#4d9de0" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : null}
+                <ReportChart
+                  rows={result.rows}
+                  labelKey="GroupName"
+                  series={[{ key: 'Headcount' }]}
+                  type="bar"
+                  height={260}
+                />
                 <ReportTable rows={result.rows} title="HRIS summary" dense />
               </>
             ) : null}
@@ -817,24 +786,16 @@ const HrisExplorer = () => {
 
             {result && result.kind === 'movement' ? (
               <>
+                {/* Only drawn for the ungrouped series — with a group-by the
+                    lines would overlay incomparable populations. */}
                 {movementChart.length > 1 ? (
-                  <div style={{ width: '100%', height: 280 }} className="mb-3">
-                    <ResponsiveContainer>
-                      <LineChart
-                        data={movementChart}
-                        margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="Closing" stroke="#4d9de0" strokeWidth={2} />
-                        <Line type="monotone" dataKey="Joiners" stroke="#3faa61" strokeWidth={2} />
-                        <Line type="monotone" dataKey="Leavers" stroke="#d9534f" strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <ReportChart
+                    rows={movementChart}
+                    labelKey="name"
+                    series={[{ key: 'Closing' }, { key: 'Joiners' }, { key: 'Leavers' }]}
+                    type="line"
+                    height={280}
+                  />
                 ) : null}
                 <ReportTable rows={result.rows} title="Headcount movement" dense />
               </>
