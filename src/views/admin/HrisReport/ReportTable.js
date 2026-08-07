@@ -112,6 +112,15 @@ const ReportTable = ({ rows, title, emptyMessage, serverPaged, totalRowCount, de
 
   const data = useMemo(() => rows || [], [rows])
 
+  // TotalRows rides on every row of a detail query. When it exceeds what came
+  // back, the server capped the page — say so rather than let a partial answer
+  // read as the whole workforce.
+  const capped = useMemo(() => {
+    if (serverPaged || !rows || !rows.length) return 0
+    const total = Number(rows[0].TotalRows)
+    return Number.isFinite(total) && total > rows.length ? total : 0
+  }, [rows, serverPaged])
+
   // Exports what is on screen: the columns still visible, in the order they
   // have been dragged into, filtered by whatever is in the search box.
   // Declared before the table so it is not referenced ahead of its definition.
@@ -186,7 +195,18 @@ const ReportTable = ({ rows, title, emptyMessage, serverPaged, totalRowCount, de
     return <CAlert color="info">{emptyMessage || 'No rows match these filters.'}</CAlert>
   }
 
-  return <MaterialReactTable table={table} />
+  return (
+    <>
+      {capped > 0 && (
+        <CAlert color="warning" className="py-2" style={{ fontSize: 13 }}>
+          Showing the first <strong>{data.length.toLocaleString('en-GB')}</strong> of{' '}
+          <strong>{capped.toLocaleString('en-GB')}</strong> matching rows. Narrow the filters to
+          bring the rest into view — the export covers only what is shown here.
+        </CAlert>
+      )}
+      <MaterialReactTable table={table} />
+    </>
+  )
 }
 
 ReportTable.propTypes = {

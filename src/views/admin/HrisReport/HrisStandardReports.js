@@ -127,7 +127,7 @@ const REPORTS = [
         default: 'Year',
       },
       { name: 'Departments', label: 'Department', type: 'multi', source: 'departments' },
-      { name: 'GroupBy', label: 'Split by dimension', type: 'text', hint: 'e.g. Department' },
+      { name: 'GroupBy', label: 'Split by dimension', type: 'dimension' },
     ],
   },
   {
@@ -199,7 +199,7 @@ const REPORTS = [
     fields: [
       { name: 'EmploymentStatus', label: 'Status', type: 'select', options: STATUSES },
       { name: 'Gender', label: 'Gender', type: 'select', options: GENDERS },
-      { name: 'SplitBy', label: 'Split by', type: 'text', hint: 'e.g. Gender' },
+      { name: 'SplitBy', label: 'Split by', type: 'dimension' },
       { name: 'IncludePercentiles', label: 'Include medians', type: 'bit' },
     ],
   },
@@ -210,7 +210,7 @@ const REPORTS = [
     fields: [
       { name: 'EmploymentStatus', label: 'Status', type: 'select', options: STATUSES },
       { name: 'Gender', label: 'Gender', type: 'select', options: GENDERS },
-      { name: 'SplitBy', label: 'Split by', type: 'text', hint: 'e.g. Gender' },
+      { name: 'SplitBy', label: 'Split by', type: 'dimension' },
       { name: 'IncludePercentiles', label: 'Include medians', type: 'bit' },
     ],
   },
@@ -221,7 +221,7 @@ const REPORTS = [
     fields: [
       { name: 'EmploymentStatus', label: 'Status', type: 'select', options: STATUSES },
       { name: 'Gender', label: 'Gender', type: 'select', options: GENDERS },
-      { name: 'SplitBy', label: 'Split by', type: 'text', hint: 'e.g. Gender' },
+      { name: 'SplitBy', label: 'Split by', type: 'dimension' },
       { name: 'IncludePercentiles', label: 'Include medians', type: 'bit' },
     ],
   },
@@ -303,7 +303,14 @@ const HrisStandardReports = () => {
         const st = await fetchReportStatus({ accessToken })
         if (cancelled) return
         setStatus(st.status)
-        if (!st.status.core_installed) return
+
+        // Gate on being able to READ HRIS, not on the optional SQL pack.
+        // This used to return early when the pack was absent, which left
+        // `meta` null — and every dropdown on every report empty, with no
+        // error to explain why. The lookup lists come from the lu* tables
+        // directly and need nothing installed.
+        if (!st.status.live_available) return
+
         const m = await fetchReportMeta({ accessToken })
         if (!cancelled) setMeta(m)
       } catch (e) {
@@ -403,6 +410,27 @@ const HrisStandardReports = () => {
           {field.options.map((o) => (
             <option key={o || 'any'} value={o}>
               {o === '' ? 'Any' : o}
+            </option>
+          ))}
+        </CFormSelect>
+      )
+    }
+
+    // A dimension name the server will validate. Bound to the live catalogue
+    // rather than typed free-hand: an unknown name is a 400, and expecting
+    // someone to remember "JobCategory" is not a filter, it is a quiz.
+    if (field.type === 'dimension') {
+      const dimensions = (meta && meta.dimensions) || []
+      return (
+        <CFormSelect
+          size="sm"
+          value={value === undefined ? '' : value}
+          onChange={(e) => setValue(field.name, e.target.value)}
+        >
+          <option value="">None</option>
+          {dimensions.map((d) => (
+            <option key={d.dimension} value={d.dimension}>
+              {d.dimension.replace(/([a-z0-9])([A-Z])/g, '$1 $2')}
             </option>
           ))}
         </CFormSelect>
