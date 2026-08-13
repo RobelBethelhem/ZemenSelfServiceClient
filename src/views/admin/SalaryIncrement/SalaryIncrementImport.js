@@ -309,11 +309,15 @@ const SalaryIncrementImport = () => {
                     </>
                   )}
                 </p>
+                {/* Notifications are sent after the response so a few thousand
+                    outbound pushes cannot hold the import open — the count is
+                    what was queued, not yet what was delivered. */}
                 <p className="mb-2">
-                  <strong>Notifications sent:</strong> {result.notifications_sent || 0}
-                  {result.notifications_failed > 0 && (
-                    <span className="text-warning"> ({result.notifications_failed} failed)</span>
-                  )}
+                  <strong>Notifications:</strong>{' '}
+                  {result.notifications_queued ?? result.notifications_sent ?? 0} queued
+                  <small className="text-medium-emphasis ms-1">
+                    (sending in the background; employees are notified within a minute or two)
+                  </small>
                 </p>
                 {result.overwritten && (
                   <CAlert color="info" className="py-2 mt-2">
