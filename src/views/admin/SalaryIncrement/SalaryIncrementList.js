@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
 import { useSelector } from 'react-redux';
 import { MaterialReactTable, useMaterialReactTable } from 'material-react-table';
 import {
@@ -25,6 +25,12 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import SalaryIncrementLetterPrint from './SalaryIncrementLetterPrint';
 import { API_BASE as API_ROOT } from '../../../api/base';
+
+// Loaded only when the admin actually opens the dialog. It drags in jsPDF, the
+// QR encoder and the whole letter renderer — several hundred KB that most
+// visits to this page never need, since the common task here is looking at the
+// table or revoking one row.
+const SalaryIncrementBulkExportModal = lazy(() => import('./SalaryIncrementBulkExportModal'));
 
 const API_BASE = `${API_ROOT}/salary-increment`;
 
@@ -82,6 +88,9 @@ const SalaryIncrementList = () => {
 
   // --- export ---
   const [exporting, setExporting] = useState(false);
+
+  // --- bulk PDF archive (audit) ---
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   // Pre-fill the fiscal-year filter from the latest commitment period so the
   // Export button is usable as soon as the admin lands on the page (instead
@@ -387,27 +396,40 @@ const SalaryIncrementList = () => {
                 All imported letters across fiscal years.
               </small>
             </div>
-            <CButton
-              color="success"
-              variant="outline"
-              disabled={!fiscalYear || exporting}
-              title={
-                fiscalYear
-                  ? `Download an xlsx of every Approved/Rejected commitment decision for FY ${fiscalYear}`
-                  : 'Type a Fiscal Year in the filter below first'
-              }
-              onClick={handleExportDecisions}
-            >
-              {exporting ? (
-                <>
-                  <CSpinner size="sm" className="me-2" /> Exporting…
-                </>
-              ) : fiscalYear ? (
-                `Export Decisions FY ${fiscalYear} (xlsx)`
-              ) : (
-                'Export Decisions (xlsx)'
-              )}
-            </CButton>
+            <div className="d-flex flex-wrap" style={{ gap: 8 }}>
+              <CButton
+                color="success"
+                variant="outline"
+                disabled={!fiscalYear || exporting}
+                title={
+                  fiscalYear
+                    ? `Download an xlsx of every Approved/Rejected commitment decision for FY ${fiscalYear}`
+                    : 'Type a Fiscal Year in the filter below first'
+                }
+                onClick={handleExportDecisions}
+              >
+                {exporting ? (
+                  <>
+                    <CSpinner size="sm" className="me-2" /> Exporting…
+                  </>
+                ) : fiscalYear ? (
+                  `Export Decisions FY ${fiscalYear} (xlsx)`
+                ) : (
+                  'Export Decisions (xlsx)'
+                )}
+              </CButton>
+
+              {/* Audit archive: every letter the filters below select, rendered
+                  as one PDF per employee inside a date-stamped folder. */}
+              <CButton
+                color="primary"
+                disabled={exporting}
+                title="Download every letter matching the filters below as PDFs, in a folder named for today's date and time"
+                onClick={() => setBulkOpen(true)}
+              >
+                Download All Letters (PDF)
+              </CButton>
+            </div>
           </div>
         </CCardHeader>
         <CCardBody>
@@ -557,6 +579,23 @@ const SalaryIncrementList = () => {
           </CButton>
         </CModalFooter>
       </CModal>
+
+      {/* ============= Bulk PDF archive (audit) ============= */}
+      {bulkOpen && (
+        <Suspense fallback={null}>
+          <SalaryIncrementBulkExportModal
+            visible={bulkOpen}
+            onClose={() => setBulkOpen(false)}
+            accessToken={accessToken}
+            filters={{
+              fiscal_year: fiscalYear,
+              category,
+              status,
+              q: searchQuery,
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* ============= Print modal ============= */}
       <CModal

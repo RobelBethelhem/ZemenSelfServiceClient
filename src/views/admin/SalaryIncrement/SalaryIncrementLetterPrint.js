@@ -17,164 +17,52 @@ import ceoSignature from '../Letters/ceo_signature.png';
 
 import { API_BASE } from '../../../api/base';
 
+// Every sentence on the letter comes from here. The admin's bulk PDF export
+// reads the same module, so the printed letter and the archived PDF cannot
+// drift apart — see salaryLetterContent.js.
+import {
+  fmtLongDate,
+  hasBonus,
+  subjectLine,
+  openingPara,
+  closingPara,
+  bodyParagraphs,
+  recipientName,
+  greetingLine,
+  SIGNATORY_NAME,
+  SIGNATORY_TITLE,
+  SALUTATION_PREFIX,
+  RECIPIENT_CITY,
+  CC_LIST,
+} from './salaryLetterContent';
+
 /* global __VERIFY_URL_BASE__ */
 const VERIFY_URL_BASE =
   typeof __VERIFY_URL_BASE__ !== 'undefined'
     ? __VERIFY_URL_BASE__
     : 'https://zhr.zemenbank.com/zbss/#/verify';
 
-// ----------------------- formatting helpers -----------------------
-
-const fmtMoney = (n) => {
-  if (n === null || n === undefined || Number.isNaN(Number(n))) return '______';
-  return Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
-};
-
-const fmtLongDate = (d) => {
-  if (!d) return '______________';
-  try {
-    const dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return '______________';
-    return dt.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch {
-    return '______________';
-  }
-};
-
 // ----------------------- per-category text -----------------------
-// `hasBonus` is false when the category is Salary Only OR the user rejected
-// the commitment (bonus_months was forced to 0 at import time). In both
-// cases the letter is structurally a salary-increment-only letter — no
-// bonus subject/paragraph/closing sentence.
+//
+// RETIRED (kept as history, not deleted): the formatting helpers and the
+// <BodyParagraph> switch used to live here as JSX. They now come from
+// ./salaryLetterContent as plain strings, because the admin's bulk PDF export
+// renders the very same letter through jsPDF and had no way to reuse JSX.
+// Two hand-maintained copies of a legal paragraph is exactly the kind of thing
+// that drifts, so the wording moved to one module and both renderers read it.
+//
+// The rendered output is unchanged: the paragraphs below are the same strings
+// the JSX produced, wrapped in the same <p> styling.
 
-const subjectLine = (hasBonus) =>
-  hasBonus
-    ? 'Salary Increment and One-time Performance Based Bonus'
-    : 'Salary Increment';
-
-const openingPara = (hasBonus, boardMeetingDate) => {
-  const d = fmtLongDate(boardMeetingDate);
-  if (!hasBonus) {
-    return `It gives me a great pleasure to inform you that, the Board of Directors of the Bank, in its meeting held on ${d}, has approved salary increment considering the Bank's overall performance for the fiscal year.`;
-  }
-  return `It gives me a great pleasure to inform you that, the Board of Directors of the Bank, in its meeting held on ${d}, has approved salary increment and one-time performance based bonus payment considering the Bank's overall performance for the fiscal year and individual performance.`;
-};
-
-const closingPara = (hasBonus) =>
-  hasBonus
-    ? "Congratulations on your salary increase and performance based bonus payment. I hope to count on your continued effort and dedication as we work towards the realization of the Bank's objectives and strategies in the periods ahead."
-    : "Congratulations on the salary increment and I hope to count on your continued effort and dedication as we work towards the realization of the Bank's objectives and strategies in the periods ahead.";
-
-const BodyParagraph = ({ letter }) => {
-  const batch = letter.import_batch_id || {};
-  const effectiveDate = fmtLongDate(batch.effective_date);
-  const oldSalary = fmtMoney(letter.old_salary);
-  const newSalary = fmtMoney(letter.new_salary);
-  const grade = letter.job_grade || '____';
-  const step = letter.step || '____';
-  const bonusMonths =
-    letter.bonus_months !== null && letter.bonus_months !== undefined
-      ? letter.bonus_months
-      : '_____';
-
-  // Same condition as the rest of the letter — no bonus paragraph for
-  // Salary Only or for users who rejected the commitment.
-  const hasBonus =
-    letter.commitment_decision !== 'Rejected' && letter.category !== 'Salary Only';
-
-  switch (letter.category) {
-    case 'Full':
-      return (
-        <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-          Accordingly, I am pleased to inform you that effective {effectiveDate}, your
-          salary is increased from Birr {oldSalary}.00 to Birr {newSalary}.00 which puts
-          you under Job grade {grade} step {step} of the Bank&apos;s salary scale.
-          {hasBonus && (
-            <>
-              {' '}In addition, you will be awarded your {bonusMonths} month&apos;s salary
-              as a one-time performance based bonus.
-            </>
-          )}
-        </p>
-      );
-
-    case 'Proportionate':
-      return (
-        <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-          Accordingly, I am pleased to inform you that effective {effectiveDate}, your
-          salary is increased from Birr {oldSalary}.00 to Birr {newSalary}.00 which puts
-          you under Job grade {grade} step {step} of the Bank&apos;s salary scale.
-          {hasBonus && (
-            <>
-              {' '}In addition, you will be awarded proportionate amount of your{' '}
-              {bonusMonths} month&apos;s salary as a one-time performance based bonus.
-            </>
-          )}
-        </p>
-      );
-
-    case 'Discipline': {
-      const pct =
-        letter.discipline_pct !== null && letter.discipline_pct !== undefined
-          ? `${Math.round(Number(letter.discipline_pct) * 100)}%`
-          : '_____';
-      return (
-        <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-          Accordingly, I am pleased to inform you that effective {effectiveDate}, your
-          salary is increased from Birr {oldSalary}.00 to Birr {newSalary}.00 which puts
-          you under Job grade {grade} step {step} of the Bank&apos;s salary scale.
-          {hasBonus && (
-            <>
-              {' '}In addition, you will be awarded {pct} of your {bonusMonths}{' '}
-              month&apos;s salary as a one-time performance based bonus.
-            </>
-          )}
-        </p>
-      );
-    }
-
-    case 'Salary Only':
-      return (
-        <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-          Accordingly, I am pleased to inform you that effective {effectiveDate}, your
-          salary is increased from Birr {oldSalary}.00 to Birr {newSalary}.00 which puts
-          you under Job grade {grade} step {step} of the Bank&apos;s salary scale.
-        </p>
-      );
-
-    case 'Promotion': {
-      const newGrade = letter.new_job_grade || '____';
-      const newStep = letter.new_step || '____';
-      const finalSalary = fmtMoney(letter.salary_after_promotion_adjustment);
-      return (
-        <>
-          <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-            Accordingly, I am pleased to inform you that effective {effectiveDate}, your
-            salary is increased from Birr {oldSalary}.00 to Birr {newSalary}.00.
-          </p>
-          <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-            Furthermore, due to your promotion, effective your date of release, your
-            salary will be further increased to Birr {finalSalary}.00, which puts you
-            under job grade {newGrade} step {newStep} of the Bank&apos;s salary scale.
-            {hasBonus && (
-              <>
-                {' '}In addition, you will be awarded your {bonusMonths} month&apos;s
-                salary as a one-time performance based bonus.
-              </>
-            )}
-          </p>
-        </>
-      );
-    }
-
-    default:
-      return null;
-  }
-};
+const BodyParagraph = ({ letter }) => (
+  <>
+    {bodyParagraphs(letter).map((text, i) => (
+      <p key={i} style={{ marginBottom: 14, textAlign: 'justify' }}>
+        {text}
+      </p>
+    ))}
+  </>
+);
 
 // ----------------------- main component -----------------------
 
@@ -362,9 +250,7 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
   const referenceDisplay = (batch && batch.reference_number) || '—';
   // Suppress the bonus paragraph when the user rejected the commitment
   // (bonus_months was forced to 0 at import time).
-  const showBonusParagraph =
-    enrichedLetter.commitment_decision !== 'Rejected' &&
-    enrichedLetter.category !== 'Salary Only';
+  const showBonusParagraph = hasBonus(enrichedLetter);
 
   return (
     <>
@@ -499,11 +385,11 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
 
           {/* Recipient block — Addis Ababa underlined per house style */}
           <div style={{ marginBottom: 4 }}>
-            Ato/Woy.&nbsp;&nbsp;
-            {enrichedLetter.employee_name || '________________'}
+            {SALUTATION_PREFIX}&nbsp;&nbsp;
+            {recipientName(enrichedLetter)}
           </div>
           <div style={{ marginBottom: 18, textDecoration: 'underline' }}>
-            Addis Ababa
+            {RECIPIENT_CITY}
           </div>
 
           {/* Subject — underlined per house style */}
@@ -512,10 +398,7 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
           </div>
 
           {/* Greeting */}
-          <div style={{ marginBottom: 12 }}>
-            Dear: {enrichedLetter.first_name || '____________'}
-            {enrichedLetter.category === 'Promotion' ? ',' : ''}
-          </div>
+          <div style={{ marginBottom: 12 }}>{greetingLine(enrichedLetter)}</div>
 
           {/* Body */}
           <p style={{ marginBottom: 14, textAlign: 'justify' }}>
@@ -537,9 +420,9 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
             style={{ width: 160, height: 'auto', marginTop: 4, marginBottom: 0 }}
           />
           <div>
-            <strong>Dereje Zebene</strong>
+            <strong>{SIGNATORY_NAME}</strong>
           </div>
-          <div style={{ marginBottom: 20 }}>President/CEO</div>
+          <div style={{ marginBottom: 20 }}>{SIGNATORY_TITLE}</div>
 
           {/* Stamp — overlaps the signature area on the right; letterhead only */}
           {!withoutLetterhead && (
@@ -561,8 +444,9 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
           {/* CC list */}
           <div style={{ marginTop: 8 }}>
             <div style={{ marginBottom: 2 }}>CC:</div>
-            <div>Finance &amp; Investors Relation Department</div>
-            <div>PMES Department</div>
+            {CC_LIST.map((line) => (
+              <div key={line}>{line}</div>
+            ))}
           </div>
         </div>
 
