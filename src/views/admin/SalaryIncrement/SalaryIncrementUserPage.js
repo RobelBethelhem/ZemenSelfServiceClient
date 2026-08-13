@@ -222,13 +222,16 @@ const LetterSummary = ({ letter }) => {
         <h6>Category</h6>
         <p>{letter.category}</p>
         <h6>Reference Number</h6>
+        {/* The Board decision number the admin sets for the whole batch —
+            present from import, not assigned on print. Falls back to the
+            retired per-letter value for anything printed before the change. */}
         <p className="font-monospace">
-          {letter.reference_number || (
-            <span className="text-medium-emphasis">
-              ZB/HC/INC/_____/{letter.fiscal_year}{' '}
-              <small>(assigned on first print)</small>
-            </span>
-          )}
+          {letter.import_batch_id?.reference_number ||
+            letter.reference_number || (
+              <span className="text-medium-emphasis">
+                <small>Not yet set by HR</small>
+              </span>
+            )}
         </p>
       </CCol>
       <CCol md={6}>
@@ -726,7 +729,9 @@ const SalaryIncrementUserPage = () => {
                 </div>
                 <small className="text-medium-emphasis">
                   {l.category}
-                  {l.reference_number && <> · Ref {l.reference_number}</>}
+                  {(l.import_batch_id?.reference_number || l.reference_number) && (
+                    <> · Ref {l.import_batch_id?.reference_number || l.reference_number}</>
+                  )}
                   {l.import_batch_id?.letter_date && (
                     <> · Issued {fmtDate(l.import_batch_id.letter_date)}</>
                   )}

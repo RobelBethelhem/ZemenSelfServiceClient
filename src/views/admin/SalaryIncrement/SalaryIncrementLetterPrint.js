@@ -186,8 +186,9 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
   const [withoutLetterhead, setWithoutLetterhead] = useState(false);
   const printRef = useRef(null);
 
-  // Local "enriched" copy of the letter so we can splice in a freshly
-  // assigned reference_number before the html2canvas snapshot runs.
+  // Local copy of the letter. It no longer needs to absorb a reference spliced
+  // in at print time — that number now arrives with the batch — but the prop
+  // can still change under the component, so the copy stays.
   const [enrichedLetter, setEnrichedLetter] = useState(letter);
   useEffect(() => {
     setEnrichedLetter(letter);
@@ -209,10 +210,15 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
     }
   };
 
-  // Calls /mark-printed (owner audit + reference) or /admin-prepare-print
-  // (silent reference) depending on trackPrint. Returns reference_number
-  // when the call succeeds; null otherwise.
-  const ensureReference = async () => {
+  // Records the print against the owner's audit trail (printed_count,
+  // first/last_printed_at).
+  //
+  // It no longer fetches a reference — the letter carries the admin's batch
+  // reference, which is on screen before this ever runs. The admin
+  // reference-copy path (trackPrint === false) therefore has nothing to call
+  // at all and skips this entirely; /admin-prepare-print stays on the server
+  // for older clients.
+  const recordPrint = async () => {
     const endpoint = trackPrint
       ? `${API_BASE}/salary-increment/mark-printed`
       : `${API_BASE}/salary-increment/admin-prepare-print`;
@@ -249,14 +255,24 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
         return;
       }
 
-      // Ensure the letter has a system reference number BEFORE we snapshot,
-      // so the printed image shows the real number rather than a placeholder.
-      const ref = await ensureReference();
-      if (!ref) return;
-      if (ref !== enrichedLetter.reference_number) {
-        setEnrichedLetter((prev) => ({ ...prev, reference_number: ref }));
-        // wait for React to commit + paint the new reference
-        await new Promise((r) => setTimeout(r, 150));
+      // The reference is already on screen — it comes from the batch, not from
+      // this call — so printing no longer waits on the server, and a failure
+      // here can no longer stop someone printing their own letter.
+      //
+      // Only the owner's print is recorded. The admin reference copy
+      // deliberately does not touch printed_count.
+      //
+      // RETIRED (kept, not deleted): fetching and splicing in a generated
+      // reference before the snapshot.
+      //   const ref = await ensureReference();
+      //   if (!ref) return;
+      //   if (ref !== enrichedLetter.reference_number) {
+      //     setEnrichedLetter((prev) => ({ ...prev, reference_number: ref }));
+      //     await new Promise((r) => setTimeout(r, 150));
+      //   }
+      if (trackPrint) {
+        // Fire and continue: the audit count must not gate the print.
+        recordPrint().catch(() => {});
       }
 
       const content = printRef.current;
@@ -316,9 +332,8 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
       printWindow.document.close();
       printWindow.focus();
 
-      // The reference + audit work happened in ensureReference() above (which
-      // already covered both the user "track print" path and the admin
-      // "reference copy" path). Just notify the parent so it can refresh.
+      // The owner's print was recorded above; the admin reference copy
+      // deliberately records nothing. Notify the parent so it can refresh.
       if (typeof onPrinted === 'function') onPrinted();
     } catch (e) {
       console.error('Salary letter print error:', e);
@@ -332,9 +347,19 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
 
   const batch = enrichedLetter.import_batch_id || letter.import_batch_id;
   const verifyUrl = `${VERIFY_URL_BASE}/${encodeURIComponent(letter._id)}`;
-  const referenceDisplay =
-    enrichedLetter.reference_number ||
-    `ZB/HC/INC/_____/${enrichedLetter.fiscal_year || letter.fiscal_year || ''}`;
+
+  // The reference is the one the admin types at import time — the Board's own
+  // decision-document number — shared by every letter in the batch and present
+  // whether or not anyone prints, exactly like the effective, board-meeting and
+  // letter dates it sits beside.
+  //
+  // It is also what the public verify page has always shown, so the number on
+  // the paper and the number returned by scanning its QR code finally match.
+  //
+  // RETIRED (kept, not deleted): the per-letter number generated on first print.
+  //   enrichedLetter.reference_number ||
+  //   `ZB/HC/INC/_____/${enrichedLetter.fiscal_year || letter.fiscal_year || ''}`
+  const referenceDisplay = (batch && batch.reference_number) || '—';
   // Suppress the bonus paragraph when the user rejected the commitment
   // (bonus_months was forced to 0 at import time).
   const showBonusParagraph =

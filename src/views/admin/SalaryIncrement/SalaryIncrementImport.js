@@ -30,6 +30,7 @@ const API_URL = `${API_BASE}/salary-increment/import`;
 
 const initialForm = {
   fiscal_year: new Date().getFullYear(),
+  reference_number: '',
   effective_date: '',
   board_meeting_date: '',
   letter_date: '',
@@ -75,6 +76,12 @@ const SalaryIncrementImport = () => {
       setError('Please select an Excel file (.xlsx) to upload.');
       return;
     }
+    if (!form.reference_number.trim()) {
+      setError(
+        'A reference number is required — it is the Board decision number printed on every letter in this batch.'
+      );
+      return;
+    }
     if (!form.effective_date || !form.board_meeting_date || !form.letter_date) {
       setError('All three dates (effective, board meeting, letter) are required.');
       return;
@@ -85,6 +92,7 @@ const SalaryIncrementImport = () => {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('fiscal_year', String(form.fiscal_year));
+      fd.append('reference_number', form.reference_number.trim());
       fd.append('effective_date', form.effective_date);
       fd.append('board_meeting_date', form.board_meeting_date);
       fd.append('letter_date', form.letter_date);
@@ -158,10 +166,24 @@ const SalaryIncrementImport = () => {
                   min={2000}
                   max={3000}
                 />
+              </CCol>
+
+              <CCol md={5}>
+                <CFormLabel htmlFor="reference_number">Reference Number</CFormLabel>
+                <CFormInput
+                  type="text"
+                  id="reference_number"
+                  name="reference_number"
+                  value={form.reference_number}
+                  onChange={handleChange}
+                  placeholder="e.g. ZB/HC/2198/2025"
+                  required
+                  maxLength={60}
+                />
                 <small className="text-medium-emphasis">
-                  Reference numbers are now system-generated (e.g.{' '}
-                  <code>ZB/HC/INC/00001/{form.fiscal_year}</code>), assigned per letter
-                  on first print.
+                  The Board&apos;s decision number. Printed as the <strong>Ref. No.</strong> on
+                  every letter in this batch, and shown when the QR code is scanned — whether
+                  or not the employee prints.
                 </small>
               </CCol>
             </CRow>
