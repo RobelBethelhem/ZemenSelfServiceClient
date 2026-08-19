@@ -23,15 +23,16 @@ import {
   fmtLongDate,
   hasBonus,
   subjectLine,
-  openingPara,
-  closingPara,
-  bodyParagraphs,
+  openingParaRuns,
+  closingParaRuns,
+  bodyParagraphRuns,
   recipientName,
   greetingLine,
   SIGNATORY_NAME,
   SIGNATORY_TITLE,
   SALUTATION_PREFIX,
   RECIPIENT_CITY,
+  SUBJECT_LABEL,
   CC_LIST,
   FOOTER_LINES,
   FOOTER_TAGLINE,
@@ -44,8 +45,6 @@ import {
   CONTENT_LEFT_MM,
   CONTENT_RIGHT_MM,
   CONTENT_W_MM,
-  CONTENT_TOP_LETTERHEAD_MM,
-  CONTENT_TOP_PLAIN_MM,
   CONTENT_BOTTOM_MM,
   BODY_PT,
   BODY_LINE_MM,
@@ -54,6 +53,8 @@ import {
   QR_CAPTION_PT,
   BAR,
   LOGO,
+  DATE_TOP_MM,
+  gapAfterDateBlock,
   watermarkOrigin,
   QR_SIZE_MM,
   QR_RIGHT_MM,
@@ -61,6 +62,7 @@ import {
   FOOTER_LEFT_MM,
   FOOTER_BOTTOM_MM,
   SIGNATURE_W_MM,
+  SIGNATURE_SHIFT_MM,
   STAMP_W_MM,
   STAMP_X_MM,
   STAMP_RISE_MM,
@@ -76,10 +78,10 @@ const PT_TO_MM = 25.4 / 72
 // (Calibri itself cannot be embedded: it is a licensed Microsoft font.)
 const FONT = 'helvetica'
 
-// Half-leading. CSS centres a 12.5px glyph box inside a 19.375px line box, so
-// text sits ~3.44px below the top of its line. Reproduced so the PDF's vertical
-// rhythm matches the HTML rather than riding 1mm high.
-const HALF_LEADING_MM = px((12.5 * 1.55 - 12.5) / 2)
+// CSS centres the glyph box inside its taller line box, so text sits slightly
+// below the top of the line. Derived from the line height rather than hardcoded
+// so it stays correct when the whole letter is typeset a notch tighter.
+const halfLeadingFor = (lineMm) => (lineMm * (0.55 / 1.55)) / 2
 
 // ------------------------------------------------------------------
 // QR code, drawn as vector rectangles
@@ -113,54 +115,99 @@ const drawQr = (doc, text, x, y, sizeMm) => {
 }
 
 // ------------------------------------------------------------------
-// Text helpers
+// Rich text
 // ------------------------------------------------------------------
 
-const setBody = (doc, sizePt, bold) => {
-  doc.setFont(FONT, bold ? 'bold' : 'normal')
-  doc.setFontSize(sizePt)
+// Splits an array of { t, b } runs into words, where a word is itself a list of
+// segments. A word can straddle a run boundary — "July 1, 2025," is a bold date
+// followed by a plain comma — so a word cannot simply carry one weight.
+const runsToWords = (runs) => {
+  const words = []
+  let cur = []
+  runs.forEach((run) => {
+    const parts = String(run.t).split(' ')
+    parts.forEach((part, i) => {
+      if (i > 0) {
+        if (cur.length) words.push(cur)
+        cur = []
+      }
+      if (part) cur.push({ t: part, b: !!run.b })
+    })
+  })
+  if (cur.length) words.push(cur)
+  return words
 }
 
-// Draws one paragraph with justified margins, matching the HTML's
+const wordWidth = (doc, word) => {
+  let w = 0
+  word.forEach((seg) => {
+    doc.setFont(FONT, seg.b ? 'bold' : 'normal')
+    w += doc.getTextWidth(seg.t)
+  })
+  return w
+}
+
+// Draws a paragraph of runs with justified margins, matching the HTML's
 // `text-align: justify`, and returns the y position after it.
 //
-// jsPDF can justify on its own, but it stretches whatever lines it is handed —
-// including the last one, which is wrong and looks it. Distributing the slack
-// across the gaps ourselves also means the output is exactly predictable, which
-// matters when the thing being typeset is 2,500 official letters nobody will
-// proofread individually.
-const drawJustified = (doc, text, x, y, width, lineMm) => {
-  const lines = doc.splitTextToSize(text, width)
+// jsPDF can justify on its own, but only in a single uniform font, and it
+// stretches whatever lines it is handed — including the last one, which is
+// wrong and looks it. Since bold has to be switched mid-line anyway, the line
+// breaking and slack distribution happen here: measure each word in its own
+// weight, greedily fill lines, then spread the leftover across the gaps of
+// every line but the last.
+const drawRichParagraph = (doc, runs, x, y, width, lineMm, sizePt) => {
+  doc.setFontSize(sizePt)
+  doc.setFont(FONT, 'normal')
   const spaceW = doc.getTextWidth(' ')
+  const half = halfLeadingFor(lineMm)
 
-  lines.forEach((line, i) => {
-    const top = y + i * lineMm + HALF_LEADING_MM
-    const words = line.split(' ').filter((w) => w.length)
-    const isLast = i === lines.length - 1
+  const words = runsToWords(runs)
+  const widths = words.map((w) => wordWidth(doc, w))
 
-    if (isLast || words.length < 2) {
-      doc.text(line, x, top, { baseline: 'top' })
-      return
+  const lines = []
+  let cur = []
+  let natural = 0
+  words.forEach((w, i) => {
+    const gap = cur.length ? spaceW : 0
+    if (cur.length && natural + gap + widths[i] > width) {
+      lines.push({ items: cur, natural })
+      cur = []
+      natural = 0
     }
-    const natural = doc.getTextWidth(line)
-    const extra = (width - natural) / (words.length - 1)
+    natural += (cur.length ? spaceW : 0) + widths[i]
+    cur.push(w)
+  })
+  if (cur.length) lines.push({ items: cur, natural })
+
+  lines.forEach((line, li) => {
+    const top = y + li * lineMm + half
+    const gaps = line.items.length - 1
+    const isLast = li === lines.length - 1
+    const extra = !isLast && gaps > 0 ? (width - line.natural) / gaps : 0
+
     let cx = x
-    words.forEach((w) => {
-      doc.text(w, cx, top, { baseline: 'top' })
-      cx += doc.getTextWidth(w) + spaceW + extra
+    line.items.forEach((word, wi) => {
+      word.forEach((seg) => {
+        doc.setFont(FONT, seg.b ? 'bold' : 'normal')
+        doc.text(seg.t, cx, top, { baseline: 'top' })
+        cx += doc.getTextWidth(seg.t)
+      })
+      if (wi < gaps) cx += spaceW + extra
     })
   })
 
   return y + lines.length * lineMm
 }
 
-const drawLine = (doc, text, x, y, lineMm, { bold, underline } = {}) => {
-  setBody(doc, doc.getFontSize(), bold)
-  const top = y + HALF_LEADING_MM
+const drawLine = (doc, text, x, y, lineMm, sizePt, opts = {}) => {
+  doc.setFontSize(sizePt)
+  doc.setFont(FONT, opts.bold ? 'bold' : 'normal')
+  const top = y + halfLeadingFor(lineMm)
   doc.text(text, x, top, { baseline: 'top' })
-  if (underline) {
+  if (opts.underline) {
     const w = doc.getTextWidth(text)
-    const uy = top + doc.getFontSize() * PT_TO_MM * 1.06
+    const uy = top + sizePt * PT_TO_MM * 1.06
     doc.setLineWidth(0.18)
     doc.line(x, uy, x + w, uy)
   }
@@ -174,9 +221,31 @@ const drawLabelValueRight = (doc, label, value, rightX, y, lineMm) => {
   const lw = doc.getTextWidth(label)
   const vw = doc.getTextWidth(value)
   const startX = rightX - (lw + gap + vw)
-  const top = y + HALF_LEADING_MM
+  const top = y + halfLeadingFor(lineMm)
   doc.text(label, startX, top, { baseline: 'top' })
   doc.text(value, startX + lw + gap, top, { baseline: 'top' })
+  return y + lineMm
+}
+
+// Subject line, centred on the content column. The "Subject:" label is bold but
+// NOT underlined; the subject itself is bold AND underlined. HR was specific
+// about that split, so the two halves are measured and placed separately.
+const drawSubject = (doc, subject, y, lineMm, sizePt) => {
+  doc.setFontSize(sizePt)
+  doc.setFont(FONT, 'bold')
+  const label = `${SUBJECT_LABEL} `
+  const lw = doc.getTextWidth(label)
+  const sw = doc.getTextWidth(subject)
+  const startX = CONTENT_LEFT_MM + Math.max(0, (CONTENT_W_MM - (lw + sw)) / 2)
+  const top = y + halfLeadingFor(lineMm)
+
+  doc.text(label, startX, top, { baseline: 'top' })
+  doc.text(subject, startX + lw, top, { baseline: 'top' })
+
+  const uy = top + sizePt * PT_TO_MM * 1.06
+  doc.setLineWidth(0.18)
+  doc.line(startX + lw, uy, startX + lw + sw, uy)
+
   return y + lineMm
 }
 
@@ -190,7 +259,7 @@ const drawLabelValueRight = (doc, label, value, rightX, y, lineMm) => {
 // a live one once it has been lifted out of the archive as a loose PDF, so it
 // gets stamped across the page.
 const STATUS_OVERLAY = {
-  Revoked: 'REVOKED — NOT VALID',
+  Revoked: 'REVOKED - NOT VALID',
   Imported: 'NOT YET ACCEPTED BY EMPLOYEE',
 }
 
@@ -236,8 +305,9 @@ const layout = (doc, letter, assets, opts, scale) => {
   const batch = letter.import_batch_id || {}
   const bonus = hasBonus(letter)
 
-  const bodyPt = BODY_PT * scale
+  const pt = BODY_PT * scale
   const lineMm = BODY_LINE_MM * scale
+  const x = CONTENT_LEFT_MM
 
   // ---------- absolute chrome, painted first so text sits on top ----------
   if (withLetterhead) {
@@ -257,10 +327,12 @@ const layout = (doc, letter, assets, opts, scale) => {
   }
 
   // ---------- flowed body ----------
-  let y = withLetterhead ? CONTENT_TOP_LETTERHEAD_MM : CONTENT_TOP_PLAIN_MM
-  const x = CONTENT_LEFT_MM
+  // Starts level with the logo rather than below it; the gap under the date
+  // block returns everything after it to where it has always been.
+  let y = DATE_TOP_MM
 
-  setBody(doc, bodyPt, true)
+  doc.setFontSize(pt)
+  doc.setFont(FONT, 'bold')
   y = drawLabelValueRight(doc, 'Date:', fmtLongDate(batch.letter_date), CONTENT_RIGHT_MM, y, lineMm)
   y = drawLabelValueRight(
     doc,
@@ -270,50 +342,51 @@ const layout = (doc, letter, assets, opts, scale) => {
     y,
     lineMm,
   )
-  y += GAP.afterDateBlock
+  y += gapAfterDateBlock(withLetterhead)
 
-  setBody(doc, bodyPt, false)
-  y = drawLine(doc, `${SALUTATION_PREFIX}  ${recipientName(letter)}`, x, y, lineMm)
+  y = drawLine(doc, `${SALUTATION_PREFIX}  ${recipientName(letter)}`, x, y, lineMm, pt, {
+    bold: true,
+  })
   y += GAP.afterRecipient
-  y = drawLine(doc, RECIPIENT_CITY, x, y, lineMm, { underline: true })
+  y = drawLine(doc, RECIPIENT_CITY, x, y, lineMm, pt, { bold: true, underline: true })
   y += GAP.afterCity
 
-  y = drawLine(doc, `Subject: ${subjectLine(bonus)}`, x, y, lineMm, {
-    bold: true,
-    underline: true,
-  })
+  y = drawSubject(doc, subjectLine(bonus), y, lineMm, pt)
   y += GAP.afterSubject
 
-  setBody(doc, bodyPt, false)
-  y = drawLine(doc, greetingLine(letter), x, y, lineMm)
+  y = drawLine(doc, greetingLine(letter), x, y, lineMm, pt, { bold: true })
   y += GAP.afterGreeting
 
-  y = drawJustified(doc, openingPara(bonus, batch.board_meeting_date), x, y, CONTENT_W_MM, lineMm)
+  y = drawRichParagraph(
+    doc,
+    openingParaRuns(bonus, batch.board_meeting_date),
+    x,
+    y,
+    CONTENT_W_MM,
+    lineMm,
+    pt,
+  )
   y += GAP.afterParagraph
 
-  bodyParagraphs(letter).forEach((para) => {
-    y = drawJustified(doc, para, x, y, CONTENT_W_MM, lineMm)
+  bodyParagraphRuns(letter).forEach((runs) => {
+    y = drawRichParagraph(doc, runs, x, y, CONTENT_W_MM, lineMm, pt)
     y += GAP.afterParagraph
   })
 
-  y = drawJustified(doc, closingPara(bonus), x, y, CONTENT_W_MM, lineMm)
+  y = drawRichParagraph(doc, closingParaRuns(bonus), x, y, CONTENT_W_MM, lineMm, pt)
   y += GAP.afterClosing - GAP.afterParagraph
 
-  y = drawLine(doc, 'Regards,', x, y, lineMm)
+  y = drawLine(doc, 'Regards,', x, y, lineMm, pt)
   y += GAP.afterRegards
 
+  // Signature, nudged left of the text margin so its dense middle sits under
+  // the "R" of Regards; the stamp goes to its right, overlapping slightly. Both
+  // are drawn before the signatory's name so the name paints on top of the
+  // stamp, the way it reads on a real stamped letter.
   const sig = assets.signature
   const sigH = SIGNATURE_W_MM * (sig.heightMm / sig.widthMm)
-  doc.addImage(sig.dataUrl, 'JPEG', x, y, SIGNATURE_W_MM, sigH)
-  y += sigH
+  doc.addImage(sig.dataUrl, 'JPEG', x - SIGNATURE_SHIFT_MM, y, SIGNATURE_W_MM, sigH)
 
-  y = drawLine(doc, SIGNATORY_NAME, x, y, lineMm, { bold: true })
-  setBody(doc, bodyPt, false)
-  y = drawLine(doc, SIGNATORY_TITLE, x, y, lineMm)
-  y += GAP.afterSignatory
-
-  // The stamp keeps its position in the flow and then shifts up over the
-  // signature, exactly as the CSS `marginTop: -110` does.
   if (withLetterhead) {
     const st = assets.stamp
     doc.addImage(
@@ -325,12 +398,16 @@ const layout = (doc, letter, assets, opts, scale) => {
       STAMP_W_MM * (st.heightMm / st.widthMm),
     )
   }
+  y += sigH
 
-  y += GAP.beforeCc
-  y = drawLine(doc, 'CC:', x, y, lineMm)
-  y += GAP.afterCcLabel
+  y = drawLine(doc, SIGNATORY_NAME, x, y, lineMm, pt, { bold: true })
+  y = drawLine(doc, SIGNATORY_TITLE, x, y, lineMm, pt)
+  y += GAP.afterSignatory
+
+  y = drawLine(doc, 'CC:', x, y, lineMm, pt)
+  y += px(2)
   CC_LIST.forEach((line) => {
-    y = drawLine(doc, line, x, y, lineMm)
+    y = drawLine(doc, line, x, y, lineMm, pt)
   })
 
   const contentEnd = y
@@ -339,7 +416,8 @@ const layout = (doc, letter, assets, opts, scale) => {
   const qy = qrTop(withLetterhead)
   const qx = QR_RIGHT_MM - QR_SIZE_MM
   drawQr(doc, verifyUrl, qx, qy, QR_SIZE_MM)
-  setBody(doc, QR_CAPTION_PT, false)
+  doc.setFont(FONT, 'normal')
+  doc.setFontSize(QR_CAPTION_PT)
   doc.setTextColor(68, 68, 68)
   doc.text('Scan to verify', qx + QR_SIZE_MM / 2, qy + QR_SIZE_MM + px(4), {
     align: 'center',

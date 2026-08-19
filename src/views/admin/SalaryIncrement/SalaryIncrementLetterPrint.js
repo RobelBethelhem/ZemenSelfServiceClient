@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
@@ -24,17 +25,25 @@ import {
   fmtLongDate,
   hasBonus,
   subjectLine,
-  openingPara,
-  closingPara,
-  bodyParagraphs,
+  openingParaRuns,
+  closingParaRuns,
+  bodyParagraphRuns,
   recipientName,
   greetingLine,
   SIGNATORY_NAME,
   SIGNATORY_TITLE,
   SALUTATION_PREFIX,
   RECIPIENT_CITY,
+  SUBJECT_LABEL,
   CC_LIST,
 } from './salaryLetterContent';
+
+import {
+  BODY_PX,
+  DATE_TOP_PX,
+  gapAfterDateBlock,
+  MM_PER_PX,
+} from './salaryLetterGeometry';
 
 /* global __VERIFY_URL_BASE__ */
 const VERIFY_URL_BASE =
@@ -46,19 +55,34 @@ const VERIFY_URL_BASE =
 //
 // RETIRED (kept as history, not deleted): the formatting helpers and the
 // <BodyParagraph> switch used to live here as JSX. They now come from
-// ./salaryLetterContent as plain strings, because the admin's bulk PDF export
-// renders the very same letter through jsPDF and had no way to reuse JSX.
-// Two hand-maintained copies of a legal paragraph is exactly the kind of thing
-// that drifts, so the wording moved to one module and both renderers read it.
-//
-// The rendered output is unchanged: the paragraphs below are the same strings
-// the JSX produced, wrapped in the same <p> styling.
+// ./salaryLetterContent, because the admin's bulk PDF export renders the very
+// same letter through jsPDF and had no way to reuse JSX. Two hand-maintained
+// copies of a legal paragraph is exactly the kind of thing that drifts, so the
+// wording moved to one module and both renderers read it.
+
+// Renders a paragraph's runs, bolding the ones marked. This is the HTML half of
+// the run model; salaryLetterPdf.js does the same thing with a jsPDF font
+// switch. Both read the identical run arrays, so the emphasis lands on exactly
+// the same words in the printed letter and in the archived PDF.
+const Runs = ({ runs }) => (
+  <>
+    {runs.map((r, i) =>
+      r.b ? <strong key={i}>{r.t}</strong> : <React.Fragment key={i}>{r.t}</React.Fragment>
+    )}
+  </>
+);
+
+Runs.propTypes = {
+  runs: PropTypes.arrayOf(
+    PropTypes.shape({ t: PropTypes.string.isRequired, b: PropTypes.bool })
+  ).isRequired,
+};
 
 const BodyParagraph = ({ letter }) => (
   <>
-    {bodyParagraphs(letter).map((text, i) => (
+    {bodyParagraphRuns(letter).map((runs, i) => (
       <p key={i} style={{ marginBottom: 14, textAlign: 'justify' }}>
-        {text}
+        <Runs runs={runs} />
       </p>
     ))}
   </>
@@ -296,7 +320,7 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
           background: '#ffffff',
           color: '#000',
           fontFamily: 'Calibri, "Times New Roman", Times, serif',
-          fontSize: 12.5,
+          fontSize: BODY_PX,
           lineHeight: 1.55,
           boxSizing: 'border-box',
           margin: '0 auto',
@@ -358,19 +382,22 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
             position: 'relative',
             paddingLeft: '22mm',
             paddingRight: '22mm',
-            paddingTop: withoutLetterhead ? '20mm' : '50mm',
+            paddingTop: DATE_TOP_PX,
             paddingBottom: '40mm',
             height: '100%',
             boxSizing: 'border-box',
           }}
         >
-          {/* Date + Ref. No. — both right-aligned to mirror existing letters */}
+          {/* Date + Ref. No. — right-aligned, and level with the logo rather
+              than stranded below it. The wrapper's top padding now stops at the
+              logo's line, and the gap under this block puts everything after it
+              back exactly where it was, so only the date moved. */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'flex-end',
-              marginBottom: 18,
+              marginBottom: gapAfterDateBlock(!withoutLetterhead) / MM_PER_PX,
             }}
           >
             <div className="fw-bold">
@@ -383,66 +410,81 @@ const SalaryIncrementLetterPrint = ({ letter, onPrinted, trackPrint = true }) =>
             </div>
           </div>
 
-          {/* Recipient block — Addis Ababa underlined per house style */}
-          <div style={{ marginBottom: 4 }}>
+          {/* Recipient block — both lines bold, city underlined per house style */}
+          <div style={{ marginBottom: 4, fontWeight: 'bold' }}>
             {SALUTATION_PREFIX}&nbsp;&nbsp;
             {recipientName(enrichedLetter)}
           </div>
-          <div style={{ marginBottom: 18, textDecoration: 'underline' }}>
+          <div style={{ marginBottom: 18, fontWeight: 'bold', textDecoration: 'underline' }}>
             {RECIPIENT_CITY}
           </div>
 
-          {/* Subject — underlined per house style */}
-          <div style={{ marginBottom: 14, textDecoration: 'underline' }}>
-            <strong>Subject: {subjectLine(showBonusParagraph)}</strong>
+          {/* Subject — centred, with the underline on the subject itself and
+              deliberately NOT on the "Subject:" label. */}
+          <div style={{ marginBottom: 14, textAlign: 'center' }}>
+            <strong>{SUBJECT_LABEL} </strong>
+            <strong style={{ textDecoration: 'underline' }}>
+              {subjectLine(showBonusParagraph)}
+            </strong>
           </div>
 
           {/* Greeting */}
-          <div style={{ marginBottom: 12 }}>{greetingLine(enrichedLetter)}</div>
+          <div style={{ marginBottom: 12, fontWeight: 'bold' }}>
+            {greetingLine(enrichedLetter)}
+          </div>
 
           {/* Body */}
           <p style={{ marginBottom: 14, textAlign: 'justify' }}>
-            {openingPara(showBonusParagraph, batch.board_meeting_date)}
+            <Runs runs={openingParaRuns(showBonusParagraph, batch.board_meeting_date)} />
           </p>
 
           <BodyParagraph letter={enrichedLetter} />
 
           <p style={{ marginBottom: 24, textAlign: 'justify' }}>
-            {closingPara(showBonusParagraph)}
+            <Runs runs={closingParaRuns(showBonusParagraph)} />
           </p>
 
           <div style={{ marginBottom: 4 }}>Regards,</div>
 
-          {/* CEO signature image. Sits between "Regards," and the printed name. */}
-          <img
-            src={ceoSignature}
-            alt="CEO signature"
-            style={{ width: 160, height: 'auto', marginTop: 4, marginBottom: 0 }}
-          />
-          <div>
+          {/* Signature, with the stamp beside it.
+              The frame is nudged 10px left of the text margin: the artwork's
+              left third is a sparse lead-in flourish, so sitting flush at the
+              margin makes the signature read as indented against the "Regards,"
+              directly above it. The stamp is absolutely positioned inside this
+              wrapper so it sits to the signature's right without adding to the
+              flow height. */}
+          <div style={{ position: 'relative', marginTop: 4 }}>
+            <img
+              src={ceoSignature}
+              alt="CEO signature"
+              style={{ width: 160, height: 'auto', display: 'block', marginLeft: -10 }}
+            />
+            {!withoutLetterhead && (
+              <img
+                src={stampImage}
+                alt="Stamp"
+                style={{
+                  position: 'absolute',
+                  left: 160,
+                  top: -13,
+                  width: 120,
+                  height: 'auto',
+                  zIndex: 1,
+                }}
+              />
+            )}
+          </div>
+          {/* Raised above the stamp so the name stays readable through it, the
+              way it does on a real stamped letter. */}
+          <div style={{ position: 'relative', zIndex: 2 }}>
             <strong>{SIGNATORY_NAME}</strong>
           </div>
-          <div style={{ marginBottom: 20 }}>{SIGNATORY_TITLE}</div>
-
-          {/* Stamp — overlaps the signature area on the right; letterhead only */}
-          {!withoutLetterhead && (
-            <img
-              src={stampImage}
-              alt="Stamp"
-              style={{
-                position: 'absolute',
-                left: '22mm',
-                marginLeft: 180,
-                marginTop: -110,
-                width: 130,
-                height: 'auto',
-                zIndex: 6,
-              }}
-            />
-          )}
+          <div style={{ position: 'relative', zIndex: 2, marginBottom: 44 }}>
+            {SIGNATORY_TITLE}
+          </div>
 
           {/* CC list */}
-          <div style={{ marginTop: 8 }}>
+          <div>
             <div style={{ marginBottom: 2 }}>CC:</div>
             {CC_LIST.map((line) => (
               <div key={line}>{line}</div>

@@ -14,19 +14,22 @@ export const px = (v) => v * MM_PER_PX
 export const PAGE_W_MM = 210
 export const PAGE_H_MM = 297
 
-// Body wrapper padding — paddingLeft/Right: '22mm', paddingBottom: '40mm',
-// paddingTop: '50mm' with letterhead / '20mm' without.
+// Body wrapper padding — paddingLeft/Right: '22mm', paddingBottom: '40mm'.
 export const CONTENT_LEFT_MM = 22
 export const CONTENT_RIGHT_MM = PAGE_W_MM - 22
 export const CONTENT_W_MM = CONTENT_RIGHT_MM - CONTENT_LEFT_MM // 166
-export const CONTENT_TOP_LETTERHEAD_MM = 50
-export const CONTENT_TOP_PLAIN_MM = 20
 export const CONTENT_BOTTOM_MM = PAGE_H_MM - 40 // 257
 
-// Type. fontSize: 12.5 (CSS px), lineHeight: 1.55.
-// CSS px → PostScript points is ×0.75, independent of the mm conversion.
-export const BODY_PT = 12.5 * 0.75 // 9.375
-export const BODY_LINE_MM = px(12.5 * 1.55) // 5.126
+// Where the letter's prose used to start, and still does. The Date/Ref block
+// moved above it (see DATE_TOP below) but nothing after that block shifted.
+export const CONTENT_TOP_LETTERHEAD_MM = 50
+export const CONTENT_TOP_PLAIN_MM = 20
+
+// Type. fontSize: 13 (CSS px), lineHeight: 1.55.
+// CSS px -> PostScript points is x0.75, independent of the mm conversion.
+export const BODY_PX = 13
+export const BODY_PT = BODY_PX * 0.75 // 9.75
+export const BODY_LINE_MM = px(BODY_PX * 1.55) // 5.332
 export const FOOTER_PT = 10 * 0.75 // 7.5
 export const FOOTER_LINE_MM = px(10 * 1.35) // 3.572
 export const QR_CAPTION_PT = 9 * 0.75 // 6.75
@@ -42,9 +45,25 @@ export const BAR = {
 // Logo — top: 60, left: 50, width: 180.
 export const LOGO = { x: px(50), y: px(60), w: px(180) }
 
+// The Date / Ref. No. block sits level with the logo rather than below it.
+//
+// 75px is not arbitrary: the logo spans y 60 to 130.8 (180px wide at the
+// artwork's 1958x770 aspect), putting its centre at 95.4. A two-line date block
+// is 40.3px tall at the current type size, so starting it at 75.25 centres the
+// two against the logo — which is what "on the same horizontal line" means when
+// one side is an image twice the height of the other.
+export const DATE_TOP_PX = 75
+export const DATE_TOP_MM = px(DATE_TOP_PX)
+
+// The gap under the date block, sized so that everything below it lands exactly
+// where it did before the block moved up. Only the date moved; the recipient,
+// subject and body did not.
+export const gapAfterDateBlock = (withLetterhead) =>
+  (withLetterhead ? CONTENT_TOP_LETTERHEAD_MM : CONTENT_TOP_PLAIN_MM) - DATE_TOP_MM + px(18)
+
 // Watermark — backgroundSize: '150%', backgroundPosition: '33% 40%'.
 // For a background larger than its box, a percentage position resolves to
-// (box - image) × percent, which lands negative on x. Reproduced exactly.
+// (box - image) x percent, which lands negative on x. Reproduced exactly.
 export const watermarkOrigin = (imgWmm, imgHmm) => ({
   x: (PAGE_W_MM - imgWmm) * 0.33,
   y: (PAGE_H_MM - imgHmm) * 0.4,
@@ -64,17 +83,25 @@ export const qrTop = (withLetterhead) => {
 export const FOOTER_LEFT_MM = px(50)
 export const FOOTER_BOTTOM_MM = PAGE_H_MM - px(20)
 
-// Signature image — width: 160, marginTop: 4.
+// Signature — width 160, nudged 10px left of the text margin.
+//
+// The artwork is full-bleed (its strokes reach x=0) but its left third is a
+// sparse lead-in flourish, so at the text margin the signature *reads* as
+// indented against "Regards," directly above it. Shifting the frame 10px left
+// brings the dense body of the signature under the R without pushing any
+// meaningful ink into the margin.
 export const SIGNATURE_W_MM = px(160)
-// Stamp — position absolute at left '22mm' + marginLeft 180, marginTop -110,
-// width 130. It keeps its static position in the flow, then shifts.
-export const STAMP_W_MM = px(130)
-export const STAMP_X_MM = CONTENT_LEFT_MM + px(180)
-export const STAMP_RISE_MM = px(110)
+export const SIGNATURE_SHIFT_MM = px(10)
+
+// Stamp — to the right of the signature and slightly overlapping it vertically,
+// the way a stamp lands on a signed letter. Text drawn afterwards sits on top,
+// so the signatory's name stays readable through it.
+export const STAMP_W_MM = px(120)
+export const STAMP_X_MM = CONTENT_LEFT_MM + px(160)
+export const STAMP_RISE_MM = px(13)
 
 // Vertical gaps between blocks, from each element's marginBottom.
 export const GAP = {
-  afterDateBlock: px(18),
   afterRecipient: px(4),
   afterCity: px(18),
   afterSubject: px(14),
@@ -84,7 +111,8 @@ export const GAP = {
   afterRegards: px(4),
   // (no gap after the signature image — the signatory name butts straight up
   // against it, as in the HTML)
-  afterSignatory: px(20),
-  beforeCc: px(8),
-  afterCcLabel: px(2),
+  //
+  // President/CEO to CC: widened from 20px on HR's request so the CC block
+  // reads as a separate footer note rather than part of the signature block.
+  afterSignatory: px(44),
 }
