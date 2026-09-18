@@ -28,12 +28,15 @@ import { api, toInputDate } from './clearanceApi'
 import UserPicker from './UserPicker'
 
 // Who the President/CEO is (and who may sign for them while they are away),
-// the roles people may hold in the reporting tree, and how insistently the
-// system reminds signatories.
+// the roles people may hold in the reporting tree, the benefits statement's
+// rows and who fills each, the branch that serves head-office staff, and how
+// insistently the system reminds signatories.
 const ClearanceSettings = () => {
   const token = useSelector((s) => s.user?.accessToken)
   const [s, setS] = useState(null)
   const [roles, setRoles] = useState([])
+  const [benefitsRows, setBenefitsRows] = useState([])
+  const [branches, setBranches] = useState([])
   const [names, setNames] = useState({ ceo: '', delegate: '' })
   const [delegateActive, setDelegateActive] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -49,8 +52,11 @@ const ClearanceSettings = () => {
         sla_days: r.settings.sla_days,
         remind_every_days: r.settings.remind_every_days,
         escalate_after_days: r.settings.escalate_after_days,
+        service_branch_id: r.settings.service_branch_id ? String(r.settings.service_branch_id) : '',
       })
       setRoles((r.settings.roles || []).map((x) => ({ ...x })))
+      setBenefitsRows((r.settings.benefits_rows || []).map((x) => ({ ...x })))
+      setBranches(r.branches || [])
       setNames({ ceo: r.ceo_name, delegate: r.ceo_delegate_name })
       setDelegateActive(!!r.delegate_active)
     } catch (e) {
@@ -65,10 +71,22 @@ const ClearanceSettings = () => {
   const set = (k, v) => setS((x) => ({ ...x, [k]: v }))
   const setRole = (i, patch) =>
     setRoles((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const setRow = (i, patch) =>
+    setBenefitsRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const moveRow = (i, d) =>
+    setBenefitsRows((rs) => {
+      const j = i + d
+      if (j < 0 || j >= rs.length) return rs
+      const copy = [...rs]
+      ;[copy[i], copy[j]] = [copy[j], copy[i]]
+      return copy
+    })
 
   const save = async () => {
     if (roles.some((r) => !String(r.label || '').trim()))
       return toast.warn('Every role needs a label.')
+    if (benefitsRows.some((r) => !String(r.label || '').trim()))
+      return toast.warn('Every benefits row needs a label.')
     setBusy(true)
     try {
       await api(token, '/settings', {
@@ -82,6 +100,13 @@ const ClearanceSettings = () => {
             manages: !!r.manages,
             unit_head_for: r.unit_head_for || '',
           })),
+          benefits_rows: benefitsRows.map((r) => ({
+            code: r.code || '',
+            label: r.label.trim(),
+            filled_by: r.filled_by || 'hr',
+            system_source: r.filled_by === 'system' ? r.system_source || '' : '',
+          })),
+          service_branch_id: s.service_branch_id || '',
         },
       })
       toast.success('Saved.')
@@ -157,6 +182,127 @@ const ClearanceSettings = () => {
               </small>
             </CCol>
           </CRow>
+
+          <h6>Benefits statement</h6>
+          <p className="text-medium-emphasis mb-2" style={{ fontSize: 13 }}>
+            The &ldquo;List of Benefits&rdquo; attached to every clearance once HR opens the
+            signatories.
+            <strong> System</strong> rows come from the record; <strong>branch</strong> rows are
+            filled by the employee&apos;s branch manager (or the service branch, for head-office
+            staff); <strong>HR</strong> rows by HR. Signatories see it once HR issues it.
+          </p>
+          <CRow className="g-3 mb-2">
+            <CCol md={6}>
+              <CFormLabel>Service branch for head-office employees</CFormLabel>
+              <CFormSelect
+                value={s.service_branch_id}
+                onChange={(e) => set('service_branch_id', e.target.value)}
+              >
+                <option value="">— none (HR fills the branch rows) —</option>
+                {branches.map((b) => (
+                  <option key={b._id} value={String(b._id)}>
+                    {b.code} — {b.name}
+                  </option>
+                ))}
+              </CFormSelect>
+              <small className="text-medium-emphasis">
+                Branch 164 is chosen automatically the first time it exists in the registry; change
+                it here.
+              </small>
+            </CCol>
+          </CRow>
+          <CTable small bordered className="mb-2" style={{ maxWidth: 900 }}>
+            <CTableHead>
+              <CTableRow>
+                <CTableHeaderCell style={{ width: 70 }} />
+                <CTableHeaderCell>Row</CTableHeaderCell>
+                <CTableHeaderCell style={{ width: 150 }}>Filled by</CTableHeaderCell>
+                <CTableHeaderCell style={{ width: 210 }}>System source</CTableHeaderCell>
+                <CTableHeaderCell style={{ width: 60 }} />
+              </CTableRow>
+            </CTableHead>
+            <CTableBody>
+              {benefitsRows.map((r, i) => (
+                <CTableRow key={r.code || i}>
+                  <CTableDataCell style={{ whiteSpace: 'nowrap' }}>
+                    <CButton
+                      size="sm"
+                      color="light"
+                      onClick={() => moveRow(i, -1)}
+                      disabled={i === 0}
+                    >
+                      ↑
+                    </CButton>
+                    <CButton
+                      size="sm"
+                      color="light"
+                      onClick={() => moveRow(i, 1)}
+                      disabled={i === benefitsRows.length - 1}
+                    >
+                      ↓
+                    </CButton>
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CFormInput
+                      size="sm"
+                      value={r.label}
+                      onChange={(e) => setRow(i, { label: e.target.value })}
+                    />
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CFormSelect
+                      size="sm"
+                      value={r.filled_by || 'hr'}
+                      onChange={(e) => setRow(i, { filled_by: e.target.value })}
+                    >
+                      <option value="system">System</option>
+                      <option value="branch">Branch manager</option>
+                      <option value="hr">HR</option>
+                    </CFormSelect>
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    {r.filled_by === 'system' ? (
+                      <CFormSelect
+                        size="sm"
+                        value={r.system_source || ''}
+                        onChange={(e) => setRow(i, { system_source: e.target.value })}
+                      >
+                        <option value="">— pick —</option>
+                        <option value="date_of_employment">Date of employment</option>
+                        <option value="release_date">Release / resignation date</option>
+                      </CFormSelect>
+                    ) : (
+                      <span className="text-medium-emphasis">—</span>
+                    )}
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CButton
+                      size="sm"
+                      color="danger"
+                      variant="ghost"
+                      onClick={() => setBenefitsRows((rs) => rs.filter((_, j) => j !== i))}
+                    >
+                      ×
+                    </CButton>
+                  </CTableDataCell>
+                </CTableRow>
+              ))}
+            </CTableBody>
+          </CTable>
+          <CButton
+            size="sm"
+            color="secondary"
+            variant="outline"
+            className="mb-4"
+            onClick={() =>
+              setBenefitsRows((rs) => [
+                ...rs,
+                { code: '', label: '', filled_by: 'hr', system_source: '' },
+              ])
+            }
+          >
+            Add row
+          </CButton>
 
           <h6>Roles in the reporting tree</h6>
           <p className="text-medium-emphasis mb-2" style={{ fontSize: 13 }}>
@@ -262,9 +408,10 @@ const ClearanceSettings = () => {
             </CCol>
           </CRow>
           <CAlert color="light" className="mt-3 py-2">
-            Reminders go to whoever can currently sign the row; hand-signed rows and rows with no
-            signatory go to HR. The scheduler runs every fifteen minutes; nothing fires twice for
-            the same day.
+            Reminders go to whoever can currently sign the row (or their delegate); hand-signed rows
+            and rows with no signatory go to HR. When an approved departure&apos;s release date
+            arrives, HR is reminded once to open the signatories. The scheduler runs every fifteen
+            minutes.
           </CAlert>
           <CButton color="primary" disabled={busy} onClick={save}>
             {busy ? <CSpinner size="sm" /> : 'Save settings'}

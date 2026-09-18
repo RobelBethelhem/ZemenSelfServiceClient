@@ -27,7 +27,7 @@ const VERIFY_URL_BASE =
 //                 departmental row is done; the final line is blank.
 //   certificate — the completed clearance, numbered, with a QR that resolves
 //                 to the public verify page. Available only once Cleared.
-const ClearanceFormPrint = ({ clearance, names, artifact }) => {
+const ClearanceFormPrint = ({ clearance, names, acting, benefits, artifact }) => {
   const accessToken = useSelector((s) => s.user?.accessToken)
   const dispatch = useDispatch()
   const navigate = useNavigate()
@@ -193,7 +193,13 @@ const ClearanceFormPrint = ({ clearance, names, artifact }) => {
           </div>
         )}
 
-        <ClearanceFormView clearance={clearance} names={names} print />
+        <ClearanceFormView
+          clearance={clearance}
+          names={names}
+          acting={acting}
+          benefits={benefits}
+          print
+        />
 
         {isCertificate && (
           <div
@@ -217,6 +223,8 @@ const ClearanceFormPrint = ({ clearance, names, artifact }) => {
 ClearanceFormPrint.propTypes = {
   clearance: PropTypes.object.isRequired,
   names: PropTypes.object,
+  acting: PropTypes.object,
+  benefits: PropTypes.object,
   artifact: PropTypes.oneOf(['form', 'certificate']).isRequired,
 }
 

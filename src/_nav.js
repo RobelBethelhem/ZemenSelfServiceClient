@@ -51,6 +51,8 @@ const _nav = (userRole) => [
         { component: CNavItem, name: 'My Clearance', to: '/user/clearance' },
         { component: CNavItem, name: 'Clearance Inbox', to: '/clearance/inbox' },
         { component: CNavItem, name: 'My Team', to: '/clearance/my-unit' },
+      { component: CNavItem, name: 'Delegations', to: '/clearance/delegate' },
+        { component: CNavItem, name: 'Delegate', to: '/clearance/delegate' },
       ],
     },
     {
@@ -324,6 +326,7 @@ const _nav = (userRole) => [
       { component: CNavItem, name: 'My Clearance', to: '/user/clearance' },
       { component: CNavItem, name: 'Inbox', to: '/clearance/inbox' },
       { component: CNavItem, name: 'My Team', to: '/clearance/my-unit' },
+      { component: CNavItem, name: 'Open Signatories', to: '/admin/clearance/open' },
       { component: CNavItem, name: 'All Clearances', to: '/admin/clearance/list' },
       { component: CNavItem, name: 'Record a Departure', to: '/admin/clearance/new' },
       { component: CNavItem, name: 'Units & Heads', to: '/admin/clearance/units' },

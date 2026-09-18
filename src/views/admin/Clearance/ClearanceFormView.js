@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { CBadge } from '@coreui/react'
 import ClearanceStatusBadge from './ClearanceStatusBadge'
-import { fmtLongDate, daysBetween } from './clearanceApi'
+import { fmtLongDate, fmtDateTime, daysBetween } from './clearanceApi'
 import {
   FORM_TITLE,
   FORM_PREAMBLE,
@@ -12,8 +12,9 @@ import {
 } from './clearanceContent'
 
 // The Exit Clearance form itself, laid out like the paper original: an
-// Employee Information block, then one row per department with its
-// sub-items, then the President/CEO line.
+// Employee Information block, the List of Benefits once HR has issued it,
+// then one row per department with its sub-items, then the President/CEO
+// line.
 //
 // Two modes from one component so the screen and the printout can never
 // disagree about what is on the form:
@@ -36,7 +37,15 @@ const headCell = (print) => ({
   textAlign: 'center',
 })
 
-const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions, slaDays }) => {
+const ClearanceFormView = ({
+  clearance,
+  names = {},
+  acting = {},
+  benefits = null,
+  print = false,
+  renderActions,
+  slaDays,
+}) => {
   const c = clearance
   const tasks = [...(c.tasks || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
   const rows = tasks.filter((t) => !t.is_final)
@@ -44,6 +53,13 @@ const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions
   const isResignation = c.termination_type === 'Resignation'
   const gaps = new Set(c.hris_gaps || [])
   const fontSize = print ? 10.5 : 13
+  const who = (u) => (u && names[u]) || u || ''
+  // "X (for Y)" when X is standing in for Y today.
+  const actor = (u) => (acting[u] ? `${who(u)} (for ${who(acting[u])})` : who(u))
+  const signed = (t) => {
+    const base = signatureLine(t, names)
+    return base && t.acted_for ? `${base} (for ${who(t.acted_for)})` : base
+  }
 
   const gapFlag = (field) =>
     !print && gaps.has(field) ? (
@@ -65,6 +81,8 @@ const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions
       <small className="text-danger ms-2">{left === 0 ? 'due today' : `overdue ${-left}d`}</small>
     )
   }
+
+  const showBenefits = benefits && benefits.rows && benefits.rows.length > 0 && !benefits.hidden
 
   return (
     <div
@@ -147,6 +165,40 @@ const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions
         </tbody>
       </table>
 
+      {showBenefits && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
+          <thead>
+            <tr>
+              <th style={headCell(print)}>List of Benefits</th>
+              <th style={headCell(print)}>Amount/Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {benefits.rows.map((r) => (
+              <tr key={r.code}>
+                <td style={cell(print, { width: '42%', fontWeight: 'bold' })}>{r.label}</td>
+                <td style={cell(print)}>
+                  {r.value || (print ? ' ' : <span className="text-medium-emphasis">—</span>)}
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td
+                colSpan={2}
+                style={cell(print, { fontSize: print ? 8.5 : 11, fontStyle: 'italic' })}
+              >
+                {benefits.issued
+                  ? `Issued ${fmtDateTime(benefits.issued_at)} by ${who(benefits.issued_by)}` +
+                    (benefits.branch_unit_name
+                      ? ` · branch rows by ${benefits.branch_unit_code ? `${benefits.branch_unit_code} ` : ''}${benefits.branch_unit_name}`
+                      : '')
+                  : 'Not yet issued to signatories.'}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
@@ -158,7 +210,8 @@ const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions
           {rows.length === 0 && (
             <tr>
               <td colSpan={2} style={cell(print, { fontStyle: 'italic' })}>
-                The clearance form has not opened yet. Rows appear on the release date.
+                The clearance form has not been opened yet. Rows appear once HR opens the
+                signatories.
               </td>
             </tr>
           )}
@@ -204,7 +257,7 @@ const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions
               <td style={cell(print)}>
                 {print ? (
                   <>
-                    <div>{signatureLine(t, names) || ' '}</div>
+                    <div>{signed(t) || ' '}</div>
                     {t.note ? <div style={{ fontSize: 9.5 }}>{t.note}</div> : null}
                   </>
                 ) : (
@@ -221,13 +274,13 @@ const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions
                       )}
                       {dueInfo(t)}
                     </div>
-                    {signatureLine(t, names) ? (
-                      <div style={{ fontSize: 12, marginTop: 2 }}>{signatureLine(t, names)}</div>
+                    {signed(t) ? (
+                      <div style={{ fontSize: 12, marginTop: 2 }}>{signed(t)}</div>
                     ) : t.status === 'Pending' || t.status === 'Waiting' ? (
                       <div style={{ fontSize: 12, marginTop: 2 }} className="text-medium-emphasis">
                         Signatories:{' '}
                         {(t.signers_snapshot || []).length
-                          ? t.signers_snapshot.map((s) => names[s] || s).join(', ')
+                          ? t.signers_snapshot.map(actor).join(', ')
                           : 'none mapped — HR must reassign'}
                       </div>
                     ) : null}
@@ -259,19 +312,19 @@ const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions
           print ? (
             <span>
               {finalTask.status === 'Cleared'
-                ? signatureLine(finalTask, names)
+                ? signed(finalTask)
                 : '______________________________   Date: ______________'}
             </span>
           ) : (
             <>
               <ClearanceStatusBadge task status={finalTask.status} />
               {finalTask.signature_mode === 'manual' && <CBadge color="dark">hand-signed</CBadge>}
-              {signatureLine(finalTask, names) ? (
-                <span style={{ fontSize: 12 }}>{signatureLine(finalTask, names)}</span>
+              {signed(finalTask) ? (
+                <span style={{ fontSize: 12 }}>{signed(finalTask)}</span>
               ) : (finalTask.status === 'Pending' || finalTask.status === 'Waiting') &&
                 (finalTask.signers_snapshot || []).length ? (
                 <small className="text-medium-emphasis">
-                  {finalTask.signers_snapshot.map((s) => names[s] || s).join(', ')}
+                  {finalTask.signers_snapshot.map(actor).join(', ')}
                 </small>
               ) : null}
               {renderActions ? renderActions(finalTask) : null}
@@ -290,6 +343,8 @@ const ClearanceFormView = ({ clearance, names = {}, print = false, renderActions
 ClearanceFormView.propTypes = {
   clearance: PropTypes.object.isRequired,
   names: PropTypes.object,
+  acting: PropTypes.object,
+  benefits: PropTypes.object,
   print: PropTypes.bool,
   renderActions: PropTypes.func,
   slaDays: PropTypes.number,

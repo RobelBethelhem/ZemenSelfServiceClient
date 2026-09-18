@@ -32,12 +32,14 @@ import 'react-toastify/dist/ReactToastify.css'
 import { api, fmtDate, toInputDate } from './clearanceApi'
 import ClearanceStatusBadge from './ClearanceStatusBadge'
 import ClearanceDetail from './ClearanceDetail'
+import ResignationLetterView from './ResignationLetterView'
 
 // The employee's own view: submit a resignation, then follow it through
-// supervisor and HR approval, the clearance form, and the certificate.
+// supervisor and HR approval, HR opening the signatories, the clearance form,
+// and the certificate.
 //
 // A resignation is written *for* the employee in a fixed format from three
-// inputs — reason, release date, optional statement — and shown as a preview
+// inputs — reason, release date, optional statement — and shown as a letter
 // before it is submitted, so every letter on file reads the same way.
 
 const emptyForm = { reason: '', additional_statement: '', immediate: false, release_date: '' }
@@ -99,8 +101,8 @@ const ResignationForm = ({ token, onSubmitted, resubmitId, initial }) => {
       <CCardBody>
         <p className="text-medium-emphasis">
           Your letter is prepared in the Bank&apos;s standard format from the details below. It goes
-          to your immediate supervisor, then to HR. On your release date the exit clearance form
-          opens and every department is notified to sign.
+          to your immediate supervisor, then to HR. Once HR opens the signatories, every department
+          is notified to sign — until then you may still withdraw.
         </p>
         <CRow className="g-3">
           <CCol md={12}>
@@ -124,7 +126,7 @@ const ResignationForm = ({ token, onSubmitted, resubmitId, initial }) => {
             <CFormCheck
               className="mt-2"
               id="resign-immediate"
-              label="Immediate release (clearance opens as soon as HR approves)"
+              label="Immediate release"
               checked={form.immediate}
               onChange={(e) => set('immediate', e.target.checked)}
             />
@@ -151,11 +153,12 @@ const ResignationForm = ({ token, onSubmitted, resubmitId, initial }) => {
           size="lg"
           backdrop="static"
           alignment="center"
+          scrollable
         >
           <CModalHeader closeButton={!busy}>
             <CModalTitle>Your resignation letter</CModalTitle>
           </CModalHeader>
-          <CModalBody>
+          <CModalBody style={{ background: '#f4f5f7' }}>
             {preview &&
               preview.snapshot &&
               preview.snapshot.hris_gaps &&
@@ -165,19 +168,10 @@ const ResignationForm = ({ token, onSubmitted, resubmitId, initial }) => {
                   the portal profile was used. HR will see this flagged.
                 </CAlert>
               )}
-            <pre
-              style={{
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'Calibri, "Times New Roman", serif',
-                fontSize: 14,
-                background: '#fafafa',
-                border: '1px solid #eee',
-                padding: 16,
-              }}
-            >
-              {preview && preview.letter}
-            </pre>
-            <small className="text-medium-emphasis">
+            {preview && (
+              <ResignationLetterView parts={preview.parts || null} text={preview.letter} />
+            )}
+            <small className="text-medium-emphasis d-block mt-2">
               By submitting you confirm this letter is your resignation. Your supervisor and HR will
               read it exactly as shown.
             </small>
@@ -247,6 +241,9 @@ const ClearanceUserPage = () => {
     }
   }
 
+  const canWithdraw =
+    current && ['Pending Supervisor', 'Pending HR', 'Approved'].includes(current.status)
+
   return (
     <>
       <ToastContainer position="top-right" />
@@ -297,13 +294,20 @@ const ClearanceUserPage = () => {
             />
           )}
 
+          {current && current.status === 'Approved' && (
+            <CAlert color="info" className="py-2">
+              Your resignation is approved. HR has not yet opened the departmental signatories —
+              until they do, you can still withdraw.
+            </CAlert>
+          )}
+
           {current && !canStart && (
             <ClearanceDetail
               id={current._id}
               token={token}
               onChanged={load}
               extraActions={
-                ['Pending Supervisor', 'Pending HR', 'Approved'].includes(current.status) ? (
+                canWithdraw ? (
                   <CButton color="secondary" variant="ghost" disabled={busy} onClick={withdraw}>
                     Withdraw resignation
                   </CButton>

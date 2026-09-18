@@ -29,9 +29,10 @@ import ClearanceStatusBadge from './ClearanceStatusBadge'
 import ClearanceDetail from './ClearanceDetail'
 
 // Everything waiting on the signed-in person: resignations to approve (as a
-// supervisor, or as HR) and clearance rows to sign. Acting on any of them
-// opens the full clearance, so the signatory sees the whole form — HR's
-// decision — not just their own line.
+// supervisor, as someone's delegate, or as HR), clearance rows to sign, and
+// benefits statements to fill. Acting on any of them opens the full
+// clearance, so the signatory sees the whole form — HR's decision — not just
+// their own line.
 const ClearanceInbox = () => {
   const token = useSelector((s) => s.user?.accessToken)
   const navigate = useNavigate()
@@ -66,7 +67,10 @@ const ClearanceInbox = () => {
     )
   }
 
-  const total = inbox ? inbox.approvals.length + inbox.tasks.length + inbox.manual.length : 0
+  const benefitsList = (inbox && inbox.benefits) || []
+  const total = inbox
+    ? inbox.approvals.length + inbox.tasks.length + inbox.manual.length + benefitsList.length
+    : 0
 
   return (
     <>
@@ -83,14 +87,24 @@ const ClearanceInbox = () => {
               : total === 0
                 ? 'Nothing is waiting on you.'
                 : `${total} item${total === 1 ? '' : 's'} waiting on you.`}
+            {me && me.acting_for && me.acting_for.length
+              ? ` You are acting for ${me.acting_for.join(', ')}.`
+              : ''}
           </small>
         </div>
-        <div className="d-flex" style={{ gap: 8 }}>
+        <div className="d-flex flex-wrap" style={{ gap: 8 }}>
           {me && (me.manages || (me.heads_units && me.heads_units.length > 0)) && (
             <CButton color="info" variant="outline" onClick={() => navigate('/clearance/my-unit')}>
               Manage my team
             </CButton>
           )}
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={() => navigate('/clearance/delegate')}
+          >
+            Delegate
+          </CButton>
           <CButton
             color="secondary"
             variant="outline"
@@ -148,6 +162,12 @@ const ClearanceInbox = () => {
                     <CTableDataCell>{fmtDate(a.submitted_at)}</CTableDataCell>
                     <CTableDataCell>
                       <ClearanceStatusBadge status={a.status} />
+                      {a.acting_for ? (
+                        <>
+                          <br />
+                          <small className="text-info">for {a.acting_for}</small>
+                        </>
+                      ) : null}
                       {a.supervisor_unresolved && a.stage === 'supervisor' ? (
                         <>
                           <br />
@@ -158,6 +178,67 @@ const ClearanceInbox = () => {
                     <CTableDataCell className="text-end">
                       <CButton size="sm" color="primary" onClick={() => setOpenId(a._id)}>
                         Review
+                      </CButton>
+                    </CTableDataCell>
+                  </CTableRow>
+                ))}
+              </CTableBody>
+            </CTable>
+          </CCardBody>
+        </CCard>
+      )}
+
+      {benefitsList.length > 0 && (
+        <CCard className="mb-3">
+          <CCardHeader>
+            <strong>Benefits statements to fill</strong>{' '}
+            <CBadge color="info">{benefitsList.length}</CBadge>
+          </CCardHeader>
+          <CCardBody className="p-0">
+            <CTable hover responsive className="mb-0">
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell>Employee</CTableHeaderCell>
+                  <CTableHeaderCell>Branch</CTableHeaderCell>
+                  <CTableHeaderCell>Your part</CTableHeaderCell>
+                  <CTableHeaderCell>Opened</CTableHeaderCell>
+                  <CTableHeaderCell />
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
+                {benefitsList.map((r) => (
+                  <CTableRow key={`${r.clearance_id}-b`}>
+                    <CTableDataCell>
+                      <strong>{r.employee_name}</strong>
+                      <br />
+                      <small className="text-medium-emphasis">
+                        {r.domain_user} · {r.job_title}
+                      </small>
+                    </CTableDataCell>
+                    <CTableDataCell>
+                      {r.branch_unit_name ? (
+                        `${r.branch_unit_code ? `${r.branch_unit_code} — ` : ''}${r.branch_unit_name}`
+                      ) : (
+                        <em>none resolved</em>
+                      )}
+                    </CTableDataCell>
+                    <CTableDataCell>
+                      {r.stage === 'branch' ? (
+                        <CBadge color="info">branch rows</CBadge>
+                      ) : (
+                        <CBadge color="primary">HR rows &amp; issue</CBadge>
+                      )}
+                      {r.note ? (
+                        <>
+                          <br />
+                          <small className="text-warning">{r.note}</small>
+                        </>
+                      ) : null}
+                    </CTableDataCell>
+                    <CTableDataCell>{fmtDate(r.opened_at)}</CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <CButton size="sm" color="info" onClick={() => setOpenId(r.clearance_id)}>
+                        Fill
                       </CButton>
                     </CTableDataCell>
                   </CTableRow>
@@ -201,6 +282,12 @@ const ClearanceInbox = () => {
                     </CTableDataCell>
                     <CTableDataCell>
                       {r.task.label}
+                      {r.acting_for ? (
+                        <>
+                          <br />
+                          <small className="text-info">acting for {r.acting_for}</small>
+                        </>
+                      ) : null}
                       {r.task.items && r.task.items.length ? (
                         <>
                           <br />
@@ -277,8 +364,8 @@ const ClearanceInbox = () => {
 
       {!loading && inbox && total === 0 && (
         <CAlert color="light">
-          You have no resignations to approve and no clearance rows to sign. You will get a
-          notification when something needs you.
+          You have nothing to approve, sign or fill. You will get a notification when something
+          needs you.
         </CAlert>
       )}
 

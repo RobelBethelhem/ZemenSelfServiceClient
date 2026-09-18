@@ -31,7 +31,7 @@ export const STATUS_META = {
   Approved: {
     color: 'info',
     short: 'Approved',
-    text: 'The departure is approved. The clearance form opens on the release date.',
+    text: 'Approved. HR opens the signatories from Open Signatories; until then the resignation can still be withdrawn.',
   },
   Open: {
     color: 'primary',

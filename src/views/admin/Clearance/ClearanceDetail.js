@@ -19,6 +19,12 @@ import {
   CCollapse,
   CRow,
   CCol,
+  CTable,
+  CTableHead,
+  CTableRow,
+  CTableHeaderCell,
+  CTableBody,
+  CTableDataCell,
 } from '@coreui/react'
 import { toast } from 'react-toastify'
 
@@ -27,6 +33,7 @@ import { STATUS_META } from './clearanceContent'
 import ClearanceStatusBadge from './ClearanceStatusBadge'
 import ClearanceFormView from './ClearanceFormView'
 import ClearanceFormPrint from './ClearanceFormPrint'
+import ResignationLetterView from './ResignationLetterView'
 import TaskActModal from './TaskActModal'
 import UserPicker from './UserPicker'
 
@@ -98,6 +105,209 @@ PromptModal.propTypes = {
   busy: PropTypes.bool,
 }
 
+// The List of Benefits: system rows are fixed, branch rows belong to the
+// branch, HR rows to HR. Each side saves what it may; the branch submits to
+// HR; HR issues. Once issued it is read-only and on the form.
+const BenefitsCard = ({ token, clearance, viewer, names, onChanged }) => {
+  const b = clearance.benefits
+  const v = viewer.benefits
+  const [values, setValues] = useState({})
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    const init = {}
+    ;(b && b.rows ? b.rows : []).forEach((r) => {
+      init[r.code] = r.value || ''
+    })
+    setValues(init)
+  }, [b])
+
+  if (!v.exists) return null
+  const who = (u) => (u && names[u]) || u || ''
+
+  if (!v.can_view) {
+    return (
+      <CCard className="mb-3">
+        <CCardHeader>
+          <strong>Benefits statement</strong>
+        </CCardHeader>
+        <CCardBody>
+          <small className="text-medium-emphasis">
+            Being prepared —{' '}
+            {b && b.branch_submitted_at
+              ? 'branch rows submitted; HR completing.'
+              : 'waiting for the branch.'}{' '}
+            Signatories see it once HR issues it.
+          </small>
+        </CCardBody>
+      </CCard>
+    )
+  }
+
+  const editable = (r) =>
+    !b.issued &&
+    ((r.filled_by === 'branch' && v.can_fill_branch) || (r.filled_by === 'hr' && v.can_fill_hr))
+  const dirty = (b.rows || []).some(
+    (r) => editable(r) && (values[r.code] || '') !== (r.value || ''),
+  )
+
+  const run = async (path, okMsg) => {
+    setBusy(true)
+    try {
+      await api(token, path, { method: 'POST', body: { id: clearance._id } })
+      toast.success(okMsg)
+      await onChanged()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const save = async () => {
+    const payload = {}
+    ;(b.rows || []).forEach((r) => {
+      if (editable(r)) payload[r.code] = values[r.code] || ''
+    })
+    setBusy(true)
+    try {
+      await api(token, '/benefits/fill', {
+        method: 'POST',
+        body: { id: clearance._id, values: payload },
+      })
+      toast.success('Saved.')
+      await onChanged()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const fillerBadge = (r) =>
+    r.filled_by === 'system' ? (
+      <CBadge color="light" style={{ color: '#444' }}>
+        system
+      </CBadge>
+    ) : r.filled_by === 'branch' ? (
+      <CBadge color="info">branch</CBadge>
+    ) : (
+      <CBadge color="primary">HR</CBadge>
+    )
+
+  return (
+    <CCard className="mb-3">
+      <CCardHeader
+        className="d-flex justify-content-between align-items-center flex-wrap"
+        style={{ gap: 8 }}
+      >
+        <div>
+          <strong>Benefits statement</strong>{' '}
+          {b.issued ? (
+            <CBadge color="success">issued {fmtDate(b.issued_at)}</CBadge>
+          ) : b.branch_submitted_at ? (
+            <CBadge color="warning">branch submitted · HR to complete</CBadge>
+          ) : (
+            <CBadge color="secondary">waiting for the branch</CBadge>
+          )}
+          <div>
+            <small className="text-medium-emphasis">
+              Branch rows:{' '}
+              {b.branch_unit_name
+                ? `${b.branch_unit_code ? `${b.branch_unit_code} — ` : ''}${b.branch_unit_name}`
+                : 'no branch resolved — HR fills them'}
+              {v.fillers && v.fillers.length ? ` (${v.fillers.map(who).join(', ')})` : ''}
+              {b.branch_submitted_at
+                ? ` · submitted ${fmtDateTime(b.branch_submitted_at)} by ${who(b.branch_submitted_by)}`
+                : ''}
+            </small>
+          </div>
+        </div>
+        {!b.issued && (
+          <div className="d-flex flex-wrap" style={{ gap: 6 }}>
+            {(v.can_fill_branch || v.can_fill_hr) && (
+              <CButton size="sm" color="primary" disabled={busy || !dirty} onClick={save}>
+                {busy ? <CSpinner size="sm" /> : 'Save'}
+              </CButton>
+            )}
+            {v.can_submit_branch && (
+              <CButton
+                size="sm"
+                color="info"
+                disabled={busy || dirty}
+                title={dirty ? 'Save first' : ''}
+                onClick={() => run('/benefits/submit-branch', 'Branch rows submitted to HR.')}
+              >
+                Submit branch rows to HR
+              </CButton>
+            )}
+            {v.can_issue && (
+              <CButton
+                size="sm"
+                color="success"
+                disabled={busy || dirty}
+                title={dirty ? 'Save first' : ''}
+                onClick={() => run('/benefits/issue', 'Statement issued to the signatories.')}
+              >
+                Issue to signatories
+              </CButton>
+            )}
+          </div>
+        )}
+      </CCardHeader>
+      <CCardBody className="p-0">
+        <CTable small bordered className="mb-0">
+          <CTableHead>
+            <CTableRow>
+              <CTableHeaderCell>List of Benefits</CTableHeaderCell>
+              <CTableHeaderCell style={{ width: 90 }}>Filled by</CTableHeaderCell>
+              <CTableHeaderCell>Amount / Details</CTableHeaderCell>
+            </CTableRow>
+          </CTableHead>
+          <CTableBody>
+            {(b.rows || []).map((r) => (
+              <CTableRow key={r.code}>
+                <CTableDataCell>
+                  <strong>{r.label}</strong>
+                </CTableDataCell>
+                <CTableDataCell>{fillerBadge(r)}</CTableDataCell>
+                <CTableDataCell>
+                  {editable(r) ? (
+                    <CFormInput
+                      size="sm"
+                      value={values[r.code] || ''}
+                      placeholder={
+                        r.filled_by === 'branch'
+                          ? 'e.g. None / 100% of Bank’s contribution'
+                          : 'e.g. 22.01 days / Not Eligible / 1 month salary'
+                      }
+                      onChange={(e) => setValues((x) => ({ ...x, [r.code]: e.target.value }))}
+                    />
+                  ) : (
+                    <>
+                      {r.value || <span className="text-medium-emphasis">—</span>}
+                      {r.filled_by_user && r.filled_by_user !== 'system' && r.value ? (
+                        <small className="text-medium-emphasis ms-2">
+                          {who(r.filled_by_user)}, {fmtDate(r.filled_at)}
+                        </small>
+                      ) : null}
+                    </>
+                  )}
+                </CTableDataCell>
+              </CTableRow>
+            ))}
+          </CTableBody>
+        </CTable>
+      </CCardBody>
+    </CCard>
+  )
+}
+BenefitsCard.propTypes = {
+  token: PropTypes.string,
+  clearance: PropTypes.object.isRequired,
+  viewer: PropTypes.object.isRequired,
+  names: PropTypes.object,
+  onChanged: PropTypes.func.isRequired,
+}
+
 const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -161,8 +371,9 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
   if (error) return <CAlert color="danger">{error}</CAlert>
   if (!data) return null
 
-  const { clearance: c, viewer: v, names, sla_days: slaDays } = data
+  const { clearance: c, viewer: v, names, acting = {}, sla_days: slaDays } = data
   const meta = STATUS_META[c.status] || {}
+  const who = (u) => (u && names[u]) || u || ''
 
   const decide = (decision, reason = '') =>
     run(
@@ -261,6 +472,9 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
                   {c.immediate ? ' (immediate)' : ''}
                   {' · '}initiated by {c.initiated_by === 'hr' ? 'HR' : 'the employee'} on{' '}
                   {fmtDate(c.submitted_at || c.createdAt)}
+                  {c.opened_at
+                    ? ` · signatories opened ${fmtDate(c.opened_at)} by ${who(c.opened_by)}`
+                    : ''}
                 </small>
               </div>
             </CCol>
@@ -281,6 +495,12 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
             </CCol>
           </CRow>
 
+          {v.acting_for_supervisor && (
+            <CAlert color="info" className="py-2 mt-3 mb-0">
+              You are acting for <strong>{who(v.acting_for_supervisor)}</strong> (delegation in
+              force).
+            </CAlert>
+          )}
           {c.hris_gaps && c.hris_gaps.length > 0 && (
             <CAlert color="warning" className="py-2 mt-3 mb-0">
               HRIS had no value for: <strong>{c.hris_gaps.join(', ')}</strong>. Those fields were
@@ -290,15 +510,21 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
           )}
           {c.supervisor_unresolved && c.status !== 'Cleared' && c.status !== 'Cancelled' && (
             <CAlert color="info" className="py-2 mt-3 mb-0">
-              No immediate supervisor is mapped for this employee in the clearance hierarchy, so HR
-              acts at the supervisor stage. Register the employee under their unit to fix this for
+              No immediate supervisor is mapped for this employee in the reporting tree, so HR acts
+              at the supervisor stage. Register the employee under their manager to fix this for
               next time.
+            </CAlert>
+          )}
+          {c.status === 'Approved' && (
+            <CAlert color="light" className="py-2 mt-3 mb-0">
+              Approved but not yet opened. HR opens the signatories from <em>Open Signatories</em>;
+              until then the employee may withdraw.
             </CAlert>
           )}
           {c.status === 'Cancelled' && c.cancelled && (
             <CAlert color="secondary" className="py-2 mt-3 mb-0">
-              Cancelled by {names[c.cancelled.by] || c.cancelled.by} on{' '}
-              {fmtDateTime(c.cancelled.at)}: {c.cancelled.reason}
+              Cancelled by {who(c.cancelled.by)} on {fmtDateTime(c.cancelled.at)}:{' '}
+              {c.cancelled.reason}
             </CAlert>
           )}
 
@@ -324,17 +550,16 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
             )}
             {v.can_open_now && (
               <CButton
-                color="primary"
-                variant="outline"
+                color="success"
                 disabled={busy}
                 onClick={() =>
                   run(
                     () => api(token, '/open-now', { method: 'POST', body: { id: c._id } }),
-                    'Clearance opened.',
+                    'Signatories opened.',
                   )
                 }
               >
-                Open clearance now
+                Open signatories
               </CButton>
             )}
             {v.can_print_form && !v.can_print_certificate && (
@@ -366,7 +591,7 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
       <CCard className="mb-3">
         <CCardHeader className="d-flex justify-content-between align-items-center">
           <strong>Departure approval</strong>
-          {c.resignation_letter && (
+          {(c.resignation_letter || c.resignation_letter_parts) && (
             <CButton
               size="sm"
               color="secondary"
@@ -379,18 +604,13 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
         </CCardHeader>
         <CCardBody>
           <CCollapse visible={showLetter}>
-            <pre
-              style={{
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'Calibri, "Times New Roman", serif',
-                fontSize: 13,
-                background: '#fafafa',
-                border: '1px solid #eee',
-                padding: 12,
-              }}
-            >
-              {c.resignation_letter}
-            </pre>
+            <div className="mb-3">
+              <ResignationLetterView
+                parts={c.resignation_letter_parts || null}
+                text={c.resignation_letter}
+                compact
+              />
+            </div>
           </CCollapse>
           {c.reason && !c.resignation_letter && (
             <p className="mb-2">
@@ -399,7 +619,23 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
           )}
           <div>
             <strong>Supervisor:</strong>{' '}
-            {c.supervisor_user ? names[c.supervisor_user] || c.supervisor_user : 'not mapped'}
+            {c.supervisor_user ? (
+              <>
+                {who(c.supervisor_user)}
+                {acting[Object.keys(acting).find((d) => acting[d] === c.supervisor_user) || '']
+                  ? null
+                  : null}
+                {Object.keys(acting).some((d) => acting[d] === c.supervisor_user) ? (
+                  <small className="text-medium-emphasis">
+                    {' '}
+                    — {who(Object.keys(acting).find((d) => acting[d] === c.supervisor_user))} is
+                    acting for them
+                  </small>
+                ) : null}
+              </>
+            ) : (
+              'not mapped'
+            )}
           </div>
           {(c.decision_history || []).length === 0 ? (
             <small className="text-medium-emphasis">No decisions yet.</small>
@@ -411,8 +647,9 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
                     {d.decision === 'approve' ? 'Approved' : 'Rejected'}
                   </CBadge>
                   <strong>{d.stage === 'hr' ? 'HR' : 'Supervisor'}</strong>
-                  {d.on_behalf ? ' (HR on behalf)' : ''} — {d.by_name || names[d.by] || d.by},{' '}
-                  {fmtDateTime(d.at)}
+                  {d.on_behalf ? ' (HR on behalf)' : ''}
+                  {d.acting_for ? ` (${who(d.by)} for ${who(d.acting_for)})` : ''} —{' '}
+                  {d.by_name || who(d.by)}, {fmtDateTime(d.at)}
                   {d.reason ? <div className="text-medium-emphasis ms-4">“{d.reason}”</div> : null}
                 </li>
               ))}
@@ -420,6 +657,9 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
           )}
         </CCardBody>
       </CCard>
+
+      {/* ---------- benefits statement ---------- */}
+      <BenefitsCard token={token} clearance={c} viewer={v} names={names} onChanged={changed} />
 
       {/* ---------- the form ---------- */}
       <CCard className="mb-3">
@@ -436,6 +676,8 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
           <ClearanceFormView
             clearance={c}
             names={names}
+            acting={acting}
+            benefits={v.benefits.can_view && c.benefits && c.benefits.issued ? c.benefits : null}
             renderActions={renderActions}
             slaDays={slaDays}
           />
@@ -572,8 +814,8 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
         </CModalHeader>
         <CModalBody>
           <p className="mb-2">
-            Replace who may sign this row on this clearance only. The template and the unit
-            hierarchy are not changed.
+            Replace who may sign this row on this clearance only. The template and the reporting
+            tree are not changed.
           </p>
           <UserPicker
             token={token}
@@ -640,7 +882,13 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
         </CModalHeader>
         <CModalBody style={{ background: '#eef0f4' }}>
           {printArtifact && (
-            <ClearanceFormPrint clearance={c} names={names} artifact={printArtifact} />
+            <ClearanceFormPrint
+              clearance={c}
+              names={names}
+              acting={acting}
+              benefits={v.benefits.can_view && c.benefits && c.benefits.issued ? c.benefits : null}
+              artifact={printArtifact}
+            />
           )}
         </CModalBody>
         <CModalFooter>
