@@ -37,6 +37,8 @@ const ClearanceSettings = () => {
   const [roles, setRoles] = useState([])
   const [benefitsRows, setBenefitsRows] = useState([])
   const [branches, setBranches] = useState([])
+  const [completion, setCompletion] = useState(null)
+  const [reasons, setReasons] = useState([])
   const [names, setNames] = useState({ ceo: '', delegate: '' })
   const [delegateActive, setDelegateActive] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -57,6 +59,17 @@ const ClearanceSettings = () => {
       setRoles((r.settings.roles || []).map((x) => ({ ...x })))
       setBenefitsRows((r.settings.benefits_rows || []).map((x) => ({ ...x })))
       setBranches(r.branches || [])
+      const comp = r.settings.completion || {}
+      setCompletion({
+        hris_write: comp.hris_write !== false,
+        hris_disable_login: comp.hris_disable_login !== false,
+        revoke_guaranties: comp.revoke_guaranties !== false,
+        experience_letter: comp.experience_letter !== false,
+        reason_codes: { ...(comp.reason_codes || {}) },
+      })
+      api(token, '/hris/termination-reasons')
+        .then((x) => setReasons(x.data || []))
+        .catch(() => setReasons([]))
       setNames({ ceo: r.ceo_name, delegate: r.ceo_delegate_name })
       setDelegateActive(!!r.delegate_active)
     } catch (e) {
@@ -107,6 +120,7 @@ const ClearanceSettings = () => {
             system_source: r.filled_by === 'system' ? r.system_source || '' : '',
           })),
           service_branch_id: s.service_branch_id || '',
+          completion,
         },
       })
       toast.success('Saved.')
@@ -303,6 +317,101 @@ const ClearanceSettings = () => {
           >
             Add row
           </CButton>
+
+          <h6>After the last signature</h6>
+          <p className="text-medium-emphasis mb-2" style={{ fontSize: 13 }}>
+            What the system does the moment a clearance is Cleared. Each step is recorded on the
+            clearance and can be run again from there.
+          </p>
+          {completion && (
+            <CRow className="g-3 mb-2">
+              <CCol md={6}>
+                <CFormCheck
+                  id="comp-hris"
+                  label="Write TerminationDate and reason to HRIS (EmployeeDetail)"
+                  checked={completion.hris_write}
+                  onChange={(e) => setCompletion((c) => ({ ...c, hris_write: e.target.checked }))}
+                />
+                <CFormCheck
+                  id="comp-login"
+                  label="Disable the HRIS login (UserProfile.Status = 0)"
+                  checked={completion.hris_disable_login}
+                  disabled={!completion.hris_write}
+                  onChange={(e) =>
+                    setCompletion((c) => ({ ...c, hris_disable_login: e.target.checked }))
+                  }
+                />
+                <CFormCheck
+                  id="comp-guar"
+                  label="Revoke every guaranty letter the employee issued"
+                  checked={completion.revoke_guaranties}
+                  onChange={(e) =>
+                    setCompletion((c) => ({ ...c, revoke_guaranties: e.target.checked }))
+                  }
+                />
+                <CFormCheck
+                  id="comp-exp"
+                  label="Generate the experience letter (last position ends on the release date)"
+                  checked={completion.experience_letter}
+                  onChange={(e) =>
+                    setCompletion((c) => ({ ...c, experience_letter: e.target.checked }))
+                  }
+                />
+              </CCol>
+              <CCol md={6}>
+                <CFormLabel>HRIS termination reason code by departure type</CFormLabel>
+                {['Resignation', 'Retirement', 'Contract End', 'Termination', 'Death', 'Other'].map(
+                  (t) => (
+                    <div key={t} className="d-flex align-items-center mb-1" style={{ gap: 8 }}>
+                      <span style={{ width: 120 }}>{t}</span>
+                      <CFormInput
+                        size="sm"
+                        type="number"
+                        style={{ width: 110 }}
+                        value={
+                          completion.reason_codes[t] === null ||
+                          completion.reason_codes[t] === undefined
+                            ? ''
+                            : completion.reason_codes[t]
+                        }
+                        placeholder="none"
+                        onChange={(e) =>
+                          setCompletion((c) => ({
+                            ...c,
+                            reason_codes: {
+                              ...c.reason_codes,
+                              [t]: e.target.value === '' ? null : Number(e.target.value),
+                            },
+                          }))
+                        }
+                      />
+                      <small className="text-medium-emphasis">
+                        {(() => {
+                          const code = completion.reason_codes[t]
+                          const hit = reasons.find((x) => String(x.Id) === String(code))
+                          return hit
+                            ? hit.Reason
+                            : code === null || code === undefined || code === ''
+                              ? 'no reason written'
+                              : 'unknown code'
+                        })()}
+                      </small>
+                    </div>
+                  ),
+                )}
+                {reasons.length > 0 && (
+                  <small className="text-medium-emphasis d-block mt-1">
+                    HRIS codes: {reasons.map((x) => `${x.Id} ${x.Reason}`).join(' · ')}
+                  </small>
+                )}
+              </CCol>
+            </CRow>
+          )}
+          <CAlert color="light" className="py-2 mb-4">
+            HRIS never disabled the login of a leaver by itself — most of those who left still had
+            one enabled. A termination date HR had already recorded by hand is not overwritten
+            unless you use Force on the clearance.
+          </CAlert>
 
           <h6>Roles in the reporting tree</h6>
           <p className="text-medium-emphasis mb-2" style={{ fontSize: 13 }}>

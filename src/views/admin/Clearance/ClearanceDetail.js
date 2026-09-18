@@ -27,6 +27,7 @@ import {
   CTableDataCell,
 } from '@coreui/react'
 import { toast } from 'react-toastify'
+import { useNavigate } from 'react-router-dom'
 
 import { api, fmtDate, fmtDateTime, fmtLongDate, toInputDate } from './clearanceApi'
 import { STATUS_META } from './clearanceContent'
@@ -315,6 +316,238 @@ const KIND_LABEL = {
   outstanding: 'Outstanding Loan commitments memo',
 }
 
+const STEP_LABEL = {
+  hris: 'HRIS master data',
+  guaranties: 'Guaranty letters',
+  experience: 'Experience letter',
+}
+const STEP_TEXT = {
+  hris: 'TerminationDate and reason written to HRIS; HRIS login disabled.',
+  guaranties: 'Every guaranty letter this employee issued is revoked.',
+  experience: 'An experience letter with the last position ending on the release date.',
+}
+const stepColor = (st) =>
+  st === 'done'
+    ? 'success'
+    : st === 'failed'
+      ? 'danger'
+      : st === 'skipped'
+        ? 'secondary'
+        : 'warning'
+
+// What followed the last signature — HRIS, guaranties, experience letter —
+// with the outcome of each and, for HR, a way to run one again.
+const CompletionCard = ({ token, clearance, viewer, names, experienceLetter, onChanged }) => {
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState('')
+  const [hrisNow, setHrisNow] = useState(null)
+  if (clearance.status !== 'Cleared' || !(viewer.is_admin || viewer.is_owner)) return null
+  const done = clearance.completion || {}
+  const who = (u) => (u && names[u]) || u || ''
+
+  const run = async (step, force) => {
+    setBusy(step || 'all')
+    try {
+      await api(token, '/completion/run', {
+        method: 'POST',
+        body: { id: clearance._id, step: step || undefined, force: !!force },
+      })
+      toast.success(step ? `${STEP_LABEL[step]}: run again.` : 'All steps run again.')
+      await onChanged()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setBusy('')
+    }
+  }
+  const checkHris = async () => {
+    setBusy('check')
+    try {
+      const r = await api(token, `/completion/hris/${clearance._id}`)
+      setHrisNow(r.hris || { missing: true })
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <CCard className="mb-3">
+      <CCardHeader
+        className="d-flex justify-content-between align-items-center flex-wrap"
+        style={{ gap: 8 }}
+      >
+        <div>
+          <strong>After the last signature</strong>
+          <small className="text-medium-emphasis ms-2">
+            {done.ran_at ? `run ${fmtDateTime(done.ran_at)}` : 'not run yet'}
+          </small>
+        </div>
+        {viewer.is_admin && (
+          <div className="d-flex flex-wrap" style={{ gap: 6 }}>
+            <CButton
+              size="sm"
+              color="secondary"
+              variant="outline"
+              disabled={!!busy}
+              onClick={checkHris}
+            >
+              {busy === 'check' ? <CSpinner size="sm" /> : 'Check HRIS now'}
+            </CButton>
+            <CButton
+              size="sm"
+              color="primary"
+              variant="outline"
+              disabled={!!busy}
+              onClick={() => run(undefined, false)}
+            >
+              {busy === 'all' ? <CSpinner size="sm" /> : 'Run all again'}
+            </CButton>
+          </div>
+        )}
+      </CCardHeader>
+      <CCardBody className="p-0">
+        <CTable small className="mb-0">
+          <CTableHead>
+            <CTableRow>
+              <CTableHeaderCell style={{ width: 190 }}>Step</CTableHeaderCell>
+              <CTableHeaderCell style={{ width: 100 }}>Outcome</CTableHeaderCell>
+              <CTableHeaderCell>Details</CTableHeaderCell>
+              {viewer.is_admin && <CTableHeaderCell style={{ width: 170 }} />}
+            </CTableRow>
+          </CTableHead>
+          <CTableBody>
+            {['hris', 'guaranties', 'experience'].map((step) => {
+              const r = done[step] || {}
+              return (
+                <CTableRow key={step}>
+                  <CTableDataCell>
+                    <strong>{STEP_LABEL[step]}</strong>
+                    <br />
+                    <small className="text-medium-emphasis">{STEP_TEXT[step]}</small>
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CBadge color={stepColor(r.status)}>{r.status || 'pending'}</CBadge>
+                    {r.at ? (
+                      <>
+                        <br />
+                        <small className="text-medium-emphasis">{fmtDate(r.at)}</small>
+                      </>
+                    ) : null}
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <div>{r.message || <span className="text-medium-emphasis">—</span>}</div>
+                    {step === 'guaranties' && r.revoked && r.revoked.length > 0 && (
+                      <ul className="mb-0 mt-1" style={{ fontSize: 12 }}>
+                        {r.revoked.map((g) => (
+                          <li key={g._id}>
+                            <strong>{g.reference_number || '(no reference)'}</strong> — guaranty for{' '}
+                            {g.guaranty_name || '—'}
+                            {g.organization ? ` at ${g.organization}` : ''}
+                            {g.issued_date ? `, issued ${fmtDate(g.issued_date)}` : ''} → revoked{' '}
+                            {fmtDate(g.revoked_at)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {step === 'experience' && r.letter_id && (
+                      <div className="mt-1">
+                        <CButton
+                          size="sm"
+                          color="dark"
+                          variant="outline"
+                          disabled={!experienceLetter}
+                          title={experienceLetter ? '' : 'Letter not available to you'}
+                          onClick={() =>
+                            navigate('/admin/experiance', { state: { rowData: experienceLetter } })
+                          }
+                        >
+                          Open experience letter{' '}
+                          {r.reference_number ? `(${r.reference_number})` : ''}
+                        </CButton>
+                      </div>
+                    )}
+                    {step === 'hris' && r.login_deferred_until && (
+                      <div className="mt-1 text-warning" style={{ fontSize: 12 }}>
+                        HRIS login stays on until the release day and is switched off on{' '}
+                        <strong>{fmtDate(r.login_deferred_until)}</strong>.
+                      </div>
+                    )}
+                    {step === 'hris' && r.login_disable_error && (
+                      <div className="mt-1 text-danger" style={{ fontSize: 12 }}>
+                        Login switch-off failed: {r.login_disable_error}
+                      </div>
+                    )}
+                    {step === 'hris' && hrisNow && (
+                      <div className="mt-1" style={{ fontSize: 12 }}>
+                        {hrisNow.missing ? (
+                          <span className="text-danger">HRIS has no row for this employee.</span>
+                        ) : (
+                          <>
+                            HRIS now: TerminationDate{' '}
+                            <strong>
+                              {hrisNow.TerminationDate ? fmtDate(hrisNow.TerminationDate) : 'NULL'}
+                            </strong>
+                            {' · '}reason{' '}
+                            <strong>
+                              {hrisNow.Reason || (hrisNow.TerminationReason ?? 'none')}
+                            </strong>
+                            {' · '}login{' '}
+                            <strong>
+                              {hrisNow.LoginStatus === 1 || hrisNow.LoginStatus === true
+                                ? 'ENABLED'
+                                : 'disabled'}
+                            </strong>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {r.by ? <small className="text-medium-emphasis">by {who(r.by)}</small> : null}
+                  </CTableDataCell>
+                  {viewer.is_admin && (
+                    <CTableDataCell className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                      <CButton
+                        size="sm"
+                        color="secondary"
+                        variant="outline"
+                        disabled={!!busy}
+                        onClick={() => run(step, false)}
+                      >
+                        {busy === step ? <CSpinner size="sm" /> : 'Run again'}
+                      </CButton>
+                      {step === 'hris' && r.status === 'failed' && r.previous_termination_date && (
+                        <CButton
+                          size="sm"
+                          color="danger"
+                          variant="outline"
+                          className="ms-1"
+                          disabled={!!busy}
+                          onClick={() => run('hris', true)}
+                        >
+                          Force
+                        </CButton>
+                      )}
+                    </CTableDataCell>
+                  )}
+                </CTableRow>
+              )
+            })}
+          </CTableBody>
+        </CTable>
+      </CCardBody>
+    </CCard>
+  )
+}
+CompletionCard.propTypes = {
+  token: PropTypes.string,
+  clearance: PropTypes.object.isRequired,
+  viewer: PropTypes.object.isRequired,
+  names: PropTypes.object,
+  experienceLetter: PropTypes.object,
+  onChanged: PropTypes.func.isRequired,
+}
+
 // The inter-departmental memos HR sends about this departure. HR composes
 // and sends; recipient units and the clearance's signatories read, print and
 // download.
@@ -601,7 +834,15 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
   if (error) return <CAlert color="danger">{error}</CAlert>
   if (!data) return null
 
-  const { clearance: c, viewer: v, names, acting = {}, memos = [], sla_days: slaDays } = data
+  const {
+    clearance: c,
+    viewer: v,
+    names,
+    acting = {},
+    memos = [],
+    experience_letter: experienceLetter,
+    sla_days: slaDays,
+  } = data
   const meta = STATUS_META[c.status] || {}
   const who = (u) => (u && names[u]) || u || ''
   const supervisorDelegate = Object.keys(acting).find((d) => acting[d] === c.supervisor_user)
@@ -884,6 +1125,16 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
           )}
         </CCardBody>
       </CCard>
+
+      {/* ---------- completion ---------- */}
+      <CompletionCard
+        token={token}
+        clearance={c}
+        viewer={v}
+        names={names}
+        experienceLetter={experienceLetter}
+        onChanged={changed}
+      />
 
       {/* ---------- benefits statement ---------- */}
       <BenefitsCard token={token} clearance={c} viewer={v} names={names} onChanged={changed} />
