@@ -50,6 +50,7 @@ const _nav = (userRole) => [
       items: [
         { component: CNavItem, name: 'My Clearance', to: '/user/clearance' },
         { component: CNavItem, name: 'Clearance Inbox', to: '/clearance/inbox' },
+        { component: CNavItem, name: 'My Team', to: '/clearance/my-unit' },
       ],
     },
     {
@@ -322,6 +323,7 @@ const _nav = (userRole) => [
     items: [
       { component: CNavItem, name: 'My Clearance', to: '/user/clearance' },
       { component: CNavItem, name: 'Inbox', to: '/clearance/inbox' },
+      { component: CNavItem, name: 'My Team', to: '/clearance/my-unit' },
       { component: CNavItem, name: 'All Clearances', to: '/admin/clearance/list' },
       { component: CNavItem, name: 'Record a Departure', to: '/admin/clearance/new' },
       { component: CNavItem, name: 'Units & Heads', to: '/admin/clearance/units' },

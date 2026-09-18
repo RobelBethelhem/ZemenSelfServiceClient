@@ -9,9 +9,17 @@ import {
   CBadge,
   CFormInput,
   CFormLabel,
+  CFormCheck,
+  CFormSelect,
   CRow,
   CCol,
   CAlert,
+  CTable,
+  CTableHead,
+  CTableRow,
+  CTableHeaderCell,
+  CTableBody,
+  CTableDataCell,
 } from '@coreui/react'
 import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
@@ -20,10 +28,12 @@ import { api, toInputDate } from './clearanceApi'
 import UserPicker from './UserPicker'
 
 // Who the President/CEO is (and who may sign for them while they are away),
-// and how insistently the system reminds signatories.
+// the roles people may hold in the reporting tree, and how insistently the
+// system reminds signatories.
 const ClearanceSettings = () => {
   const token = useSelector((s) => s.user?.accessToken)
   const [s, setS] = useState(null)
+  const [roles, setRoles] = useState([])
   const [names, setNames] = useState({ ceo: '', delegate: '' })
   const [delegateActive, setDelegateActive] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -40,6 +50,7 @@ const ClearanceSettings = () => {
         remind_every_days: r.settings.remind_every_days,
         escalate_after_days: r.settings.escalate_after_days,
       })
+      setRoles((r.settings.roles || []).map((x) => ({ ...x })))
       setNames({ ceo: r.ceo_name, delegate: r.ceo_delegate_name })
       setDelegateActive(!!r.delegate_active)
     } catch (e) {
@@ -52,8 +63,12 @@ const ClearanceSettings = () => {
   }, [token, load])
 
   const set = (k, v) => setS((x) => ({ ...x, [k]: v }))
+  const setRole = (i, patch) =>
+    setRoles((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
 
   const save = async () => {
+    if (roles.some((r) => !String(r.label || '').trim()))
+      return toast.warn('Every role needs a label.')
     setBusy(true)
     try {
       await api(token, '/settings', {
@@ -62,6 +77,11 @@ const ClearanceSettings = () => {
           ...s,
           ceo_delegate_from: s.ceo_delegate_from || null,
           ceo_delegate_to: s.ceo_delegate_to || null,
+          roles: roles.map((r) => ({
+            label: r.label.trim(),
+            manages: !!r.manages,
+            unit_head_for: r.unit_head_for || '',
+          })),
         },
       })
       toast.success('Saved.')
@@ -71,6 +91,7 @@ const ClearanceSettings = () => {
     } finally {
       setBusy(false)
     }
+    return null
   }
 
   if (!s) {
@@ -136,6 +157,76 @@ const ClearanceSettings = () => {
               </small>
             </CCol>
           </CRow>
+
+          <h6>Roles in the reporting tree</h6>
+          <p className="text-medium-emphasis mb-2" style={{ fontSize: 13 }}>
+            A role that <em>manages</em> may register people beneath itself. Exactly one role heads
+            a department (the Director) and one heads a branch (the Branch Manager) — registering a
+            person with that role makes them the unit&apos;s head.
+          </p>
+          <CTable small bordered className="mb-2" style={{ maxWidth: 720 }}>
+            <CTableHead>
+              <CTableRow>
+                <CTableHeaderCell>Role</CTableHeaderCell>
+                <CTableHeaderCell style={{ width: 130 }}>Manages</CTableHeaderCell>
+                <CTableHeaderCell style={{ width: 190 }}>Heads a…</CTableHeaderCell>
+                <CTableHeaderCell style={{ width: 60 }} />
+              </CTableRow>
+            </CTableHead>
+            <CTableBody>
+              {roles.map((r, i) => (
+                <CTableRow key={i}>
+                  <CTableDataCell>
+                    <CFormInput
+                      size="sm"
+                      value={r.label}
+                      onChange={(e) => setRole(i, { label: e.target.value })}
+                    />
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CFormCheck
+                      id={`role-m-${i}`}
+                      label="yes"
+                      checked={!!r.manages}
+                      onChange={(e) => setRole(i, { manages: e.target.checked })}
+                    />
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CFormSelect
+                      size="sm"
+                      value={r.unit_head_for || ''}
+                      onChange={(e) => setRole(i, { unit_head_for: e.target.value })}
+                    >
+                      <option value="">—</option>
+                      <option value="department">department</option>
+                      <option value="branch">branch</option>
+                    </CFormSelect>
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CButton
+                      size="sm"
+                      color="danger"
+                      variant="ghost"
+                      onClick={() => setRoles((rs) => rs.filter((_, j) => j !== i))}
+                    >
+                      ×
+                    </CButton>
+                  </CTableDataCell>
+                </CTableRow>
+              ))}
+            </CTableBody>
+          </CTable>
+          <CButton
+            size="sm"
+            color="secondary"
+            variant="outline"
+            className="mb-4"
+            onClick={() =>
+              setRoles((rs) => [...rs, { label: '', manages: false, unit_head_for: '' }])
+            }
+          >
+            Add role
+          </CButton>
 
           <h6>Reminders</h6>
           <CRow className="g-3">

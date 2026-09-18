@@ -8,6 +8,9 @@ import {
   CSpinner,
   CBadge,
   CAlert,
+  CNav,
+  CNavItem,
+  CNavLink,
   CTable,
   CTableHead,
   CTableRow,
@@ -31,33 +34,36 @@ import 'react-toastify/dist/ReactToastify.css'
 
 import { api, fmtDate, toInputDate } from './clearanceApi'
 import UserPicker from './UserPicker'
-import UnitMembersPanel from './UnitMembersPanel'
+import OrgTreePanel from './OrgTreePanel'
 
-// HR's org map for clearance: every branch and head-office department, and
-// who heads each one, with the dates the appointment is in force.
+// HR's org map for clearance, in two registers:
+//   Departments — head-office units, each headed by a Director who signs the
+//                 department's row on the form and builds the tree beneath.
+//   Branches    — the branch registry (code + name). A Branch Manager is
+//                 attached to a branch from this list when registered.
 //
-// HR only has to appoint heads. Each head then registers their own people
-// from "My Unit" — which is the only way 2,500 employees get mapped without
-// HR typing every one.
-const emptyUnit = {
+// HR only appoints heads. Each head then registers the level beneath them
+// from My Team — the delegation that keeps 2,500 employees mappable.
+const emptyUnit = (kind) => ({
   name: '',
   code: '',
-  kind: 'department',
+  kind,
   head_user: '',
   head_name: '',
   head_valid_from: toInputDate(new Date()),
   head_valid_to: '',
   head_reports_to: '',
   active: true,
-}
+})
 
 const ClearanceUnits = () => {
   const token = useSelector((s) => s.user?.accessToken)
   const [units, setUnits] = useState(null)
+  const [tab, setTab] = useState('department')
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
-  const [membersOf, setMembersOf] = useState(null)
-  const [kindFilter, setKindFilter] = useState('')
+  const [peopleOf, setPeopleOf] = useState(null)
+  const [people, setPeople] = useState(null) // { tree, chain, roles, units } or { flat }
 
   const load = useCallback(async () => {
     try {
@@ -75,10 +81,8 @@ const ClearanceUnits = () => {
   const set = (k, v) => setEditing((u) => ({ ...u, [k]: v }))
 
   const save = async () => {
-    if (!editing.name.trim() || !editing.code.trim()) {
-      toast.warn('Name and code are required.')
-      return
-    }
+    if (!editing.name.trim() || !editing.code.trim())
+      return toast.warn('Name and code are required.')
     setBusy(true)
     try {
       const body = {
@@ -101,9 +105,26 @@ const ClearanceUnits = () => {
     } finally {
       setBusy(false)
     }
+    return null
   }
 
-  const shown = (units || []).filter((u) => !kindFilter || u.kind === kindFilter)
+  const openPeople = async (u) => {
+    setPeopleOf(u)
+    setPeople(null)
+    try {
+      if (u.head_user) {
+        setPeople(await api(token, `/org/tree/${encodeURIComponent(u.head_user)}`))
+      } else {
+        const r = await api(token, `/units/${u._id}/members`)
+        setPeople({ flat: r.data || [] })
+      }
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
+
+  const shown = (units || []).filter((u) => u.kind === tab)
+  const isBranch = tab === 'branch'
 
   return (
     <>
@@ -117,39 +138,59 @@ const ClearanceUnits = () => {
             <div>
               <h4 className="mb-0">Units &amp; Heads</h4>
               <small className="text-medium-emphasis">
-                Branches and head-office departments, and who heads each. Heads register their own
-                staff.
+                Departments and their Directors; the branch registry and Branch Managers. Heads
+                build the tree beneath them from <em>My Team</em>.
               </small>
             </div>
-            <div className="d-flex" style={{ gap: 8 }}>
-              <CFormSelect
-                size="sm"
-                value={kindFilter}
-                onChange={(e) => setKindFilter(e.target.value)}
-                style={{ width: 160 }}
-              >
-                <option value="">All kinds</option>
-                <option value="department">Departments</option>
-                <option value="branch">Branches</option>
-              </CFormSelect>
-              <CButton color="primary" onClick={() => setEditing({ ...emptyUnit })}>
-                New unit
-              </CButton>
-            </div>
+            <CButton color="primary" onClick={() => setEditing(emptyUnit(tab))}>
+              {isBranch ? 'Register a branch' : 'New department'}
+            </CButton>
           </div>
+          <CNav variant="tabs" className="mt-3">
+            <CNavItem>
+              <CNavLink
+                active={tab === 'department'}
+                onClick={() => setTab('department')}
+                style={{ cursor: 'pointer' }}
+              >
+                Departments{' '}
+                <CBadge color="secondary">
+                  {(units || []).filter((u) => u.kind === 'department').length}
+                </CBadge>
+              </CNavLink>
+            </CNavItem>
+            <CNavItem>
+              <CNavLink
+                active={isBranch}
+                onClick={() => setTab('branch')}
+                style={{ cursor: 'pointer' }}
+              >
+                Branches{' '}
+                <CBadge color="secondary">
+                  {(units || []).filter((u) => u.kind === 'branch').length}
+                </CBadge>
+              </CNavLink>
+            </CNavItem>
+          </CNav>
         </CCardHeader>
         <CCardBody className="p-0">
           {!units ? (
             <div className="p-3">
               <CSpinner size="sm" /> Loading…
             </div>
+          ) : shown.length === 0 ? (
+            <CAlert color="light" className="m-3">
+              {isBranch
+                ? 'No branches registered yet. Register each branch by its code and name; then a District Manager (or HR) can register its Branch Manager.'
+                : 'No departments.'}
+            </CAlert>
           ) : (
             <CTable hover responsive className="mb-0">
               <CTableHead>
                 <CTableRow>
-                  <CTableHeaderCell>Unit</CTableHeaderCell>
-                  <CTableHeaderCell>Kind</CTableHeaderCell>
-                  <CTableHeaderCell>Head</CTableHeaderCell>
+                  {isBranch && <CTableHeaderCell style={{ width: 120 }}>Code</CTableHeaderCell>}
+                  <CTableHeaderCell>{isBranch ? 'Branch' : 'Department'}</CTableHeaderCell>
+                  <CTableHeaderCell>{isBranch ? 'Branch Manager' : 'Director'}</CTableHeaderCell>
                   <CTableHeaderCell>Appointment</CTableHeaderCell>
                   <CTableHeaderCell>People</CTableHeaderCell>
                   <CTableHeaderCell />
@@ -158,16 +199,23 @@ const ClearanceUnits = () => {
               <CTableBody>
                 {shown.map((u) => (
                   <CTableRow key={u._id} style={!u.active ? { opacity: 0.55 } : undefined}>
+                    {isBranch && (
+                      <CTableDataCell>
+                        <code>{u.code}</code>
+                      </CTableDataCell>
+                    )}
                     <CTableDataCell>
-                      <strong>{u.name}</strong> <CBadge color="secondary">{u.code}</CBadge>
+                      <strong>{u.name}</strong>
+                      {!isBranch && (
+                        <CBadge color="secondary" className="ms-1">
+                          {u.code}
+                        </CBadge>
+                      )}
                       {!u.active && (
                         <CBadge color="dark" className="ms-1">
                           inactive
                         </CBadge>
                       )}
-                    </CTableDataCell>
-                    <CTableDataCell>
-                      <CBadge color={u.kind === 'branch' ? 'info' : 'primary'}>{u.kind}</CBadge>
                     </CTableDataCell>
                     <CTableDataCell>
                       {u.head_user ? (
@@ -203,7 +251,7 @@ const ClearanceUnits = () => {
                         color="secondary"
                         variant="outline"
                         className="me-1"
-                        onClick={() => setMembersOf(u)}
+                        onClick={() => openPeople(u)}
                       >
                         People
                       </CButton>
@@ -230,12 +278,14 @@ const ClearanceUnits = () => {
         </CCardBody>
       </CCard>
 
-      {units && units.some((u) => u.active && !u.head_user) && (
-        <CAlert color="warning">
-          Some units have no head appointed. Their rows on a clearance form will have no signatory
-          until one is appointed (or HR reassigns the row).
-        </CAlert>
-      )}
+      {units &&
+        !isBranch &&
+        units.some((u) => u.kind === 'department' && u.active && !u.head_user) && (
+          <CAlert color="warning">
+            Some departments have no Director appointed. Their rows on a clearance form will have no
+            signatory until one is appointed (or HR reassigns the row).
+          </CAlert>
+        )}
 
       <CModal
         visible={!!editing}
@@ -245,25 +295,37 @@ const ClearanceUnits = () => {
         size="lg"
       >
         <CModalHeader closeButton={!busy}>
-          <CModalTitle>{editing && editing._id ? 'Edit unit' : 'New unit'}</CModalTitle>
+          <CModalTitle>
+            {editing && editing._id
+              ? 'Edit'
+              : editing && editing.kind === 'branch'
+                ? 'Register a branch'
+                : 'New department'}
+          </CModalTitle>
         </CModalHeader>
         <CModalBody>
           {editing && (
             <CRow className="g-3">
-              <CCol md={7}>
-                <CFormLabel>Name</CFormLabel>
-                <CFormInput
-                  value={editing.name}
-                  onChange={(e) => set('name', e.target.value)}
-                  placeholder="e.g. Bole Branch / Credit Portfolio Mgt. Dep't"
-                />
-              </CCol>
               <CCol md={3}>
-                <CFormLabel>Code</CFormLabel>
+                <CFormLabel>{editing.kind === 'branch' ? 'Branch code' : 'Code'}</CFormLabel>
                 <CFormInput
                   value={editing.code}
                   onChange={(e) => set('code', e.target.value.toUpperCase())}
-                  placeholder="BR-042 / CPM"
+                  placeholder={editing.kind === 'branch' ? 'e.g. 042' : 'e.g. CPM'}
+                />
+              </CCol>
+              <CCol md={7}>
+                <CFormLabel>
+                  {editing.kind === 'branch' ? 'Branch name' : 'Department name'}
+                </CFormLabel>
+                <CFormInput
+                  value={editing.name}
+                  onChange={(e) => set('name', e.target.value)}
+                  placeholder={
+                    editing.kind === 'branch'
+                      ? 'e.g. Bole Branch'
+                      : "e.g. Credit Portfolio Mgt. Dep't"
+                  }
                 />
               </CCol>
               <CCol md={2}>
@@ -275,7 +337,11 @@ const ClearanceUnits = () => {
               </CCol>
               <CCol md={12}>
                 <CFormLabel>
-                  {editing.kind === 'branch' ? 'Branch Manager' : 'Director'} (unit head)
+                  {editing.kind === 'branch' ? 'Branch Manager' : 'Director'}{' '}
+                  <small className="text-medium-emphasis">
+                    (optional here — a District Manager can also register the Branch Manager from My
+                    Team)
+                  </small>
                 </CFormLabel>
                 <UserPicker
                   token={token}
@@ -309,10 +375,12 @@ const ClearanceUnits = () => {
                 <CFormInput
                   value={editing.head_reports_to}
                   onChange={(e) => set('head_reports_to', e.target.value)}
-                  placeholder="e.g. vp.operations"
+                  placeholder={
+                    editing.kind === 'branch' ? 'e.g. the district manager' : 'e.g. vp.operations'
+                  }
                 />
                 <small className="text-medium-emphasis">
-                  Used as the head&apos;s own supervisor on their clearance.
+                  The head&apos;s own immediate supervisor.
                 </small>
               </CCol>
               {editing._id && (
@@ -344,21 +412,53 @@ const ClearanceUnits = () => {
       </CModal>
 
       <CModal
-        visible={!!membersOf}
-        onClose={() => setMembersOf(null)}
+        visible={!!peopleOf}
+        onClose={() => setPeopleOf(null)}
         size="xl"
         scrollable
         backdrop="static"
         alignment="top"
       >
         <CModalHeader>
-          <CModalTitle>People in {membersOf ? membersOf.name : ''}</CModalTitle>
+          <CModalTitle>People in {peopleOf ? peopleOf.name : ''}</CModalTitle>
         </CModalHeader>
-        <CModalBody style={{ background: '#f4f5f7' }}>
-          {membersOf && <UnitMembersPanel token={token} unit={membersOf} canEdit />}
+        <CModalBody>
+          {!people ? (
+            <CSpinner size="sm" />
+          ) : people.tree ? (
+            <OrgTreePanel
+              token={token}
+              tree={people.tree}
+              roles={people.roles}
+              units={people.units}
+              isAdmin
+              onChanged={() => openPeople(peopleOf)}
+            />
+          ) : (
+            <>
+              <CAlert color="info" className="py-2">
+                This unit has no head appointed, so there is no tree to show. Appoint a head (Edit),
+                or register people from <em>My Team</em> with the head as their manager.
+              </CAlert>
+              {people.flat.length ? (
+                <ul className="mb-0">
+                  {people.flat.map((m) => (
+                    <li key={m._id}>
+                      {m.name || m.domain_user} — {m.role}{' '}
+                      {m.reports_to ? `(reports to ${m.reports_to_name || m.reports_to})` : ''}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <small className="text-medium-emphasis">
+                  Nobody is registered in this unit yet.
+                </small>
+              )}
+            </>
+          )}
         </CModalBody>
         <CModalFooter>
-          <CButton color="secondary" variant="outline" onClick={() => setMembersOf(null)}>
+          <CButton color="secondary" variant="outline" onClick={() => setPeopleOf(null)}>
             Close
           </CButton>
         </CModalFooter>

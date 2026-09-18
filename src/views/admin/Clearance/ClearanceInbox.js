@@ -86,9 +86,9 @@ const ClearanceInbox = () => {
           </small>
         </div>
         <div className="d-flex" style={{ gap: 8 }}>
-          {me && me.heads_units && me.heads_units.length > 0 && (
+          {me && (me.manages || (me.heads_units && me.heads_units.length > 0)) && (
             <CButton color="info" variant="outline" onClick={() => navigate('/clearance/my-unit')}>
-              Manage my unit{me.heads_units.length > 1 ? 's' : ''}
+              Manage my team
             </CButton>
           )}
           <CButton
