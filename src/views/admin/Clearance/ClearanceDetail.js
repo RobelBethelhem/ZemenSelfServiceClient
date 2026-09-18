@@ -36,6 +36,8 @@ import ClearanceFormPrint from './ClearanceFormPrint'
 import ResignationLetterView from './ResignationLetterView'
 import TaskActModal from './TaskActModal'
 import UserPicker from './UserPicker'
+import MemoComposer from './MemoComposer'
+import MemoDocument from './MemoDocument'
 
 // One clearance, in full, with every action the viewer is entitled to.
 //
@@ -276,7 +278,7 @@ const BenefitsCard = ({ token, clearance, viewer, names, onChanged }) => {
                       value={values[r.code] || ''}
                       placeholder={
                         r.filled_by === 'branch'
-                          ? 'e.g. None / 100% of Bank’s contribution'
+                          ? "e.g. None / 100% of Bank's contribution"
                           : 'e.g. 22.01 days / Not Eligible / 1 month salary'
                       }
                       onChange={(e) => setValues((x) => ({ ...x, [r.code]: e.target.value }))}
@@ -305,6 +307,234 @@ BenefitsCard.propTypes = {
   clearance: PropTypes.object.isRequired,
   viewer: PropTypes.object.isRequired,
   names: PropTypes.object,
+  onChanged: PropTypes.func.isRequired,
+}
+
+const KIND_LABEL = {
+  resignation: 'Resignation memo',
+  outstanding: 'Outstanding Loan commitments memo',
+}
+
+// The inter-departmental memos HR sends about this departure. HR composes
+// and sends; recipient units and the clearance's signatories read, print and
+// download.
+const MemosCard = ({ token, clearance, viewer, memos, onChanged }) => {
+  const [compose, setCompose] = useState(null) // { kind, draft }
+  const [view, setView] = useState(null) // full memo
+  const [busy, setBusy] = useState('')
+
+  const open = async (id) => {
+    setBusy(id)
+    try {
+      const r = await api(token, `/memo/${id}`)
+      setView(r.memo)
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setBusy('')
+    }
+  }
+  const editDraft = async (id) => {
+    setBusy(id)
+    try {
+      const r = await api(token, `/memo/${id}`)
+      setCompose({ kind: r.memo.kind, draft: r.memo })
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setBusy('')
+    }
+  }
+  const act = async (fn, okMsg) => {
+    setBusy('x')
+    try {
+      await fn()
+      toast.success(okMsg)
+      await onChanged()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const canCompose =
+    viewer.is_admin &&
+    !['Pending Supervisor', 'Pending HR', 'Rejected', 'Cancelled'].includes(clearance.status)
+  if (!canCompose && !(memos && memos.length)) return null
+
+  return (
+    <CCard className="mb-3">
+      <CCardHeader
+        className="d-flex justify-content-between align-items-center flex-wrap"
+        style={{ gap: 8 }}
+      >
+        <div>
+          <strong>Inter-departmental memos</strong>
+          <small className="text-medium-emphasis ms-2">
+            sent by HR to the work units concerned
+          </small>
+        </div>
+        {canCompose && (
+          <div className="d-flex flex-wrap" style={{ gap: 6 }}>
+            <CButton
+              size="sm"
+              color="primary"
+              variant="outline"
+              onClick={() => setCompose({ kind: 'resignation' })}
+            >
+              Compose resignation memo
+            </CButton>
+            <CButton
+              size="sm"
+              color="primary"
+              variant="outline"
+              disabled={!viewer.benefits.exists}
+              title={
+                viewer.benefits.exists
+                  ? ''
+                  : 'Available once the signatories are open and the benefits statement exists'
+              }
+              onClick={() => setCompose({ kind: 'outstanding' })}
+            >
+              Compose outstanding-commitments memo
+            </CButton>
+          </div>
+        )}
+      </CCardHeader>
+      {memos && memos.length > 0 && (
+        <CCardBody className="p-0">
+          <CTable small hover className="mb-0">
+            <CTableHead>
+              <CTableRow>
+                <CTableHeaderCell>Memo</CTableHeaderCell>
+                <CTableHeaderCell>Date</CTableHeaderCell>
+                <CTableHeaderCell>To / CC</CTableHeaderCell>
+                <CTableHeaderCell>Status</CTableHeaderCell>
+                <CTableHeaderCell />
+              </CTableRow>
+            </CTableHead>
+            <CTableBody>
+              {memos.map((m) => (
+                <CTableRow key={m._id}>
+                  <CTableDataCell>
+                    <strong>{m.subject}</strong>
+                    <br />
+                    <small className="text-medium-emphasis">{KIND_LABEL[m.kind] || m.kind}</small>
+                  </CTableDataCell>
+                  <CTableDataCell>{fmtDate(m.memo_date)}</CTableDataCell>
+                  <CTableDataCell>
+                    {m.to_count} to{m.cc_count ? ` · ${m.cc_count} cc` : ''}
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    {m.status === 'sent' ? (
+                      <CBadge color="success" title={m.sent_at ? fmtDateTime(m.sent_at) : ''}>
+                        sent {fmtDate(m.sent_at)}
+                      </CBadge>
+                    ) : (
+                      <CBadge color="warning">draft</CBadge>
+                    )}
+                  </CTableDataCell>
+                  <CTableDataCell className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                    <CButton
+                      size="sm"
+                      color="secondary"
+                      variant="outline"
+                      className="me-1"
+                      disabled={busy === m._id}
+                      onClick={() => open(m._id)}
+                    >
+                      View / Print
+                    </CButton>
+                    {viewer.is_admin && m.status === 'draft' && (
+                      <>
+                        <CButton
+                          size="sm"
+                          color="primary"
+                          variant="outline"
+                          className="me-1"
+                          disabled={!!busy}
+                          onClick={() => editDraft(m._id)}
+                        >
+                          Edit
+                        </CButton>
+                        <CButton
+                          size="sm"
+                          color="success"
+                          className="me-1"
+                          disabled={!!busy}
+                          onClick={() =>
+                            act(
+                              () => api(token, `/memo/${m._id}/send`, { method: 'POST' }),
+                              'Memo sent.',
+                            )
+                          }
+                        >
+                          Send
+                        </CButton>
+                        <CButton
+                          size="sm"
+                          color="danger"
+                          variant="ghost"
+                          disabled={!!busy}
+                          onClick={() =>
+                            act(
+                              () => api(token, `/memo/${m._id}`, { method: 'DELETE' }),
+                              'Draft deleted.',
+                            )
+                          }
+                        >
+                          Delete
+                        </CButton>
+                      </>
+                    )}
+                  </CTableDataCell>
+                </CTableRow>
+              ))}
+            </CTableBody>
+          </CTable>
+        </CCardBody>
+      )}
+
+      {compose && (
+        <MemoComposer
+          token={token}
+          clearanceId={String(clearance._id)}
+          kind={compose.kind}
+          draft={compose.draft}
+          onClose={() => setCompose(null)}
+          onDone={onChanged}
+        />
+      )}
+
+      <CModal
+        visible={!!view}
+        onClose={() => setView(null)}
+        size="xl"
+        scrollable
+        backdrop="static"
+        alignment="top"
+      >
+        <CModalHeader>
+          <CModalTitle>{view ? view.subject : ''}</CModalTitle>
+        </CModalHeader>
+        <CModalBody style={{ background: '#eef0f4' }}>
+          {view && <MemoDocument memo={view} />}
+        </CModalBody>
+        <CModalFooter>
+          <CButton color="secondary" variant="outline" onClick={() => setView(null)}>
+            Close
+          </CButton>
+        </CModalFooter>
+      </CModal>
+    </CCard>
+  )
+}
+MemosCard.propTypes = {
+  token: PropTypes.string,
+  clearance: PropTypes.object.isRequired,
+  viewer: PropTypes.object.isRequired,
+  memos: PropTypes.array,
   onChanged: PropTypes.func.isRequired,
 }
 
@@ -371,9 +601,10 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
   if (error) return <CAlert color="danger">{error}</CAlert>
   if (!data) return null
 
-  const { clearance: c, viewer: v, names, acting = {}, sla_days: slaDays } = data
+  const { clearance: c, viewer: v, names, acting = {}, memos = [], sla_days: slaDays } = data
   const meta = STATUS_META[c.status] || {}
   const who = (u) => (u && names[u]) || u || ''
+  const supervisorDelegate = Object.keys(acting).find((d) => acting[d] === c.supervisor_user)
 
   const decide = (decision, reason = '') =>
     run(
@@ -622,14 +853,10 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
             {c.supervisor_user ? (
               <>
                 {who(c.supervisor_user)}
-                {acting[Object.keys(acting).find((d) => acting[d] === c.supervisor_user) || '']
-                  ? null
-                  : null}
-                {Object.keys(acting).some((d) => acting[d] === c.supervisor_user) ? (
+                {supervisorDelegate ? (
                   <small className="text-medium-emphasis">
                     {' '}
-                    — {who(Object.keys(acting).find((d) => acting[d] === c.supervisor_user))} is
-                    acting for them
+                    — {who(supervisorDelegate)} is acting for them
                   </small>
                 ) : null}
               </>
@@ -660,6 +887,9 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
 
       {/* ---------- benefits statement ---------- */}
       <BenefitsCard token={token} clearance={c} viewer={v} names={names} onChanged={changed} />
+
+      {/* ---------- memos ---------- */}
+      <MemosCard token={token} clearance={c} viewer={v} memos={memos} onChanged={changed} />
 
       {/* ---------- the form ---------- */}
       <CCard className="mb-3">

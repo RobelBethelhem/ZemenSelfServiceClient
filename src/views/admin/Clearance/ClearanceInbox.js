@@ -21,12 +21,13 @@ import {
   CModalFooter,
   CModalTitle,
 } from '@coreui/react'
-import { ToastContainer } from 'react-toastify'
+import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
 import { api, fmtDate, daysBetween } from './clearanceApi'
 import ClearanceStatusBadge from './ClearanceStatusBadge'
 import ClearanceDetail from './ClearanceDetail'
+import MemoDocument from './MemoDocument'
 
 // Everything waiting on the signed-in person: resignations to approve (as a
 // supervisor, as someone's delegate, or as HR), clearance rows to sign, and
@@ -40,6 +41,16 @@ const ClearanceInbox = () => {
   const [inbox, setInbox] = useState(null)
   const [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState(null)
+  const [memoView, setMemoView] = useState(null)
+
+  const openMemo = async (id) => {
+    try {
+      const r = await api(token, `/memo/${id}`)
+      setMemoView(r.memo)
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -68,6 +79,7 @@ const ClearanceInbox = () => {
   }
 
   const benefitsList = (inbox && inbox.benefits) || []
+  const memoList = (inbox && inbox.memos) || []
   const total = inbox
     ? inbox.approvals.length + inbox.tasks.length + inbox.manual.length + benefitsList.length
     : 0
@@ -361,6 +373,81 @@ const ClearanceInbox = () => {
           </CCardBody>
         </CCard>
       )}
+
+      {memoList.length > 0 && (
+        <CCard className="mb-3">
+          <CCardHeader>
+            <strong>Memos sent to your unit</strong>{' '}
+            <CBadge color="secondary">{memoList.length}</CBadge>
+            <small className="text-medium-emphasis ms-2">inter-departmental memos from HR</small>
+          </CCardHeader>
+          <CCardBody className="p-0">
+            <CTable hover responsive className="mb-0">
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell>Subject</CTableHeaderCell>
+                  <CTableHeaderCell>Employee</CTableHeaderCell>
+                  <CTableHeaderCell>Date</CTableHeaderCell>
+                  <CTableHeaderCell>Sent</CTableHeaderCell>
+                  <CTableHeaderCell />
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
+                {memoList.map((m) => (
+                  <CTableRow key={m._id}>
+                    <CTableDataCell>
+                      <strong>{m.subject}</strong>
+                    </CTableDataCell>
+                    <CTableDataCell>{m.employee_name}</CTableDataCell>
+                    <CTableDataCell>{fmtDate(m.memo_date)}</CTableDataCell>
+                    <CTableDataCell>{fmtDate(m.sent_at)}</CTableDataCell>
+                    <CTableDataCell className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                      <CButton
+                        size="sm"
+                        color="secondary"
+                        variant="outline"
+                        className="me-1"
+                        onClick={() => openMemo(m._id)}
+                      >
+                        View / Print
+                      </CButton>
+                      <CButton
+                        size="sm"
+                        color="primary"
+                        variant="outline"
+                        onClick={() => setOpenId(m.clearance_id)}
+                      >
+                        Clearance
+                      </CButton>
+                    </CTableDataCell>
+                  </CTableRow>
+                ))}
+              </CTableBody>
+            </CTable>
+          </CCardBody>
+        </CCard>
+      )}
+
+      <CModal
+        visible={!!memoView}
+        onClose={() => setMemoView(null)}
+        size="xl"
+        scrollable
+        backdrop="static"
+        alignment="top"
+      >
+        <CModalHeader>
+          <CModalTitle>{memoView ? memoView.subject : ''}</CModalTitle>
+        </CModalHeader>
+        <CModalBody style={{ background: '#eef0f4' }}>
+          {memoView && <MemoDocument memo={memoView} />}
+        </CModalBody>
+        <CModalFooter>
+          <CButton color="secondary" variant="outline" onClick={() => setMemoView(null)}>
+            Close
+          </CButton>
+        </CModalFooter>
+      </CModal>
 
       {!loading && inbox && total === 0 && (
         <CAlert color="light">
