@@ -57,6 +57,7 @@ const ClearanceTemplate = React.lazy(() => import('./views/admin/Clearance/Clear
 const ClearanceSettings = React.lazy(() => import('./views/admin/Clearance/ClearanceSettings'))
 const ClearanceOpenSignatory = React.lazy(() => import('./views/admin/Clearance/ClearanceOpenSignatory'))
 const ClearanceDelegate = React.lazy(() => import('./views/admin/Clearance/ClearanceDelegate'))
+const GuarantyRelease = React.lazy(() => import('./views/admin/Letters/GuarantyRelease'))
 
 // --- Service rating (survey gate on letter print/download) -----------------
 const ServiceRatingDashboard = React.lazy(() => import('./views/admin/ServiceRating/ServiceRatingDashboard'));
@@ -402,6 +403,12 @@ const routes = [
     name: 'ClearanceDelegate',
     element: ClearanceDelegate,
     roles: ['admin', 'user']
+  },
+  {
+    path: '/admin/guaranty-release/:id',
+    name: 'GuarantyRelease',
+    element: GuarantyRelease,
+    roles: ['admin'],
   },
 ]
 

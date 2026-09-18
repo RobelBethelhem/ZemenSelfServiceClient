@@ -34,6 +34,10 @@ const StatusBanner = ({ status, revokedDate, rejectedDate }) => {
     // Cleared; both are the valid, issued state for their document type.
     Committed: '#1e8e3e',
     Cleared: '#1e8e3e',
+    // Guaranty release notices verify as Issued; Cancelled if the departure
+    // was called off.
+    Issued: '#1e8e3e',
+    Cancelled: '#c5221f',
     Pending: '#b08000',
     Rejected: '#c5221f',
     Revoked: '#c5221f',
@@ -42,6 +46,8 @@ const StatusBanner = ({ status, revokedDate, rejectedDate }) => {
     Viewed: 'Genuine Letter',
     Committed: 'Genuine Letter',
     Cleared: 'Genuine Exit Clearance',
+    Issued: 'Genuine Notice',
+    Cancelled: 'Notice Cancelled',
     Pending: 'Awaiting Approval',
     Rejected: 'Letter Rejected',
     Revoked: 'Letter Revoked',
@@ -50,6 +56,10 @@ const StatusBanner = ({ status, revokedDate, rejectedDate }) => {
     Viewed: 'This letter was issued by Zemen Bank and is currently valid.',
     Committed: 'This letter was issued by Zemen Bank and is currently valid.',
     Cleared: 'This exit clearance was completed and approved by Zemen Bank.',
+    Issued: 'This notice was issued by Zemen Bank and is currently valid.',
+    Cancelled: revokedDate
+      ? `This notice was cancelled on ${formatDate(revokedDate)} and should be disregarded.`
+      : 'This notice was cancelled and should be disregarded.',
     Pending:
       'This request has not been approved yet. The recipient should not treat it as a valid letter.',
     Rejected: rejectedDate
@@ -268,7 +278,7 @@ const VerifyLetter = () => {
                           <div style={{ marginTop: 4 }}>
                             <CBadge
                               color={
-                                ['Viewed', 'Committed', 'Cleared'].includes(state.data.status)
+                                ['Viewed', 'Committed', 'Cleared', 'Issued'].includes(state.data.status)
                                   ? 'success'
                                   : state.data.status === 'Pending'
                                   ? 'warning'

@@ -335,6 +335,137 @@ const stepColor = (st) =>
         ? 'secondary'
         : 'warning'
 
+// The release notices for the companies the employee stood guarantor for:
+// written when the signatories opened, one per guaranty letter, in the
+// guaranty letter's own format. HR opens each, prints it and posts it.
+const ReleaseNoticesCard = ({ token, clearance, viewer, notices, onChanged }) => {
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const after = ['Open', 'Awaiting Final Approval', 'Cleared', 'Cancelled'].includes(
+    clearance.status,
+  )
+  if (!viewer.is_admin || !after) return null
+  const rec = clearance.release_notices || null
+  const canRun = ['Open', 'Awaiting Final Approval', 'Cleared'].includes(clearance.status)
+  const list = Array.isArray(notices) ? notices : []
+
+  const run = async () => {
+    setBusy(true)
+    try {
+      await api(token, '/notices/run', { method: 'POST', body: { id: clearance._id } })
+      toast.success('Release notices written.')
+      await onChanged()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <CCard className="mb-3">
+      <CCardHeader
+        className="d-flex justify-content-between align-items-center flex-wrap"
+        style={{ gap: 8 }}
+      >
+        <div>
+          <strong>Guaranty release notices</strong>
+          <small className="text-medium-emphasis ms-2">
+            {rec
+              ? rec.message
+              : 'not written yet — the signatories were opened before notices existed'}
+          </small>
+        </div>
+        {canRun && (
+          <CButton size="sm" color="primary" variant="outline" disabled={busy} onClick={run}>
+            {busy ? (
+              <CSpinner size="sm" />
+            ) : list.length ? (
+              'Check for new guaranties'
+            ) : (
+              'Write notices'
+            )}
+          </CButton>
+        )}
+      </CCardHeader>
+      {list.length > 0 && (
+        <CCardBody className="p-0">
+          <CTable small className="mb-0">
+            <CTableHead>
+              <CTableRow>
+                <CTableHeaderCell>Company</CTableHeaderCell>
+                <CTableHeaderCell>Guaranteed person</CTableHeaderCell>
+                <CTableHeaderCell>Guaranty letter</CTableHeaderCell>
+                <CTableHeaderCell>Notice</CTableHeaderCell>
+                <CTableHeaderCell style={{ width: 90 }}>Status</CTableHeaderCell>
+                <CTableHeaderCell style={{ width: 120 }} />
+              </CTableRow>
+            </CTableHead>
+            <CTableBody>
+              {list.map((n) => (
+                <CTableRow key={n._id}>
+                  <CTableDataCell>
+                    <strong>{n.organization || '—'}</strong>
+                    {n.organization_city ? (
+                      <>
+                        <br />
+                        <small className="text-medium-emphasis">{n.organization_city}</small>
+                      </>
+                    ) : null}
+                  </CTableDataCell>
+                  <CTableDataCell>{n.guaranty_name || '—'}</CTableDataCell>
+                  <CTableDataCell>
+                    {n.original_reference_number || '—'}
+                    <br />
+                    <small className="text-medium-emphasis">{n.original_letter_date_am}</small>
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    {n.reference_number}
+                    <br />
+                    <small className="text-medium-emphasis">
+                      {n.letter_date_am}
+                      {n.tense === 'past' ? ' · after the release' : ' · in advance'}
+                    </small>
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CBadge color={n.status === 'Issued' ? 'success' : 'danger'}>{n.status}</CBadge>
+                  </CTableDataCell>
+                  <CTableDataCell className="text-end">
+                    <CButton
+                      size="sm"
+                      color="dark"
+                      variant="outline"
+                      onClick={() =>
+                        navigate(`/admin/guaranty-release/${n._id}`, { state: { notice: n } })
+                      }
+                    >
+                      Open letter
+                    </CButton>
+                  </CTableDataCell>
+                </CTableRow>
+              ))}
+            </CTableBody>
+          </CTable>
+        </CCardBody>
+      )}
+      {rec && rec.status === 'failed' && (
+        <CCardBody>
+          <CAlert color="danger" className="mb-0">
+            {rec.message}
+          </CAlert>
+        </CCardBody>
+      )}
+    </CCard>
+  )
+}
+ReleaseNoticesCard.propTypes = {
+  token: PropTypes.string,
+  clearance: PropTypes.object.isRequired,
+  viewer: PropTypes.object.isRequired,
+  notices: PropTypes.array,
+  onChanged: PropTypes.func.isRequired,
+}
+
 // What followed the last signature — HRIS, guaranties, experience letter —
 // with the outcome of each and, for HR, a way to run one again.
 const CompletionCard = ({ token, clearance, viewer, names, experienceLetter, onChanged }) => {
@@ -841,6 +972,7 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
     acting = {},
     memos = [],
     experience_letter: experienceLetter,
+    release_notices: releaseNotices = [],
     sla_days: slaDays,
   } = data
   const meta = STATUS_META[c.status] || {}
@@ -1133,6 +1265,15 @@ const ClearanceDetail = ({ id, token, onChanged, extraActions }) => {
         viewer={v}
         names={names}
         experienceLetter={experienceLetter}
+        onChanged={changed}
+      />
+
+      {/* ---------- guaranty release notices ---------- */}
+      <ReleaseNoticesCard
+        token={token}
+        clearance={c}
+        viewer={v}
+        notices={releaseNotices}
         onChanged={changed}
       />
 
