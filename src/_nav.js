@@ -4,6 +4,7 @@ import CIcon from '@coreui/icons-react'
 import {
   cilBell,
   cilCalculator,
+  cilCheckCircle,
   cilChartPie,
   cilCursor,
   cilDescription,
@@ -40,6 +41,16 @@ const _nav = (userRole) => [
       name: 'Salary Increment & Bonus',
       to: '/user/salary-increment',
       icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
+    },
+    {
+      component: CNavGroup,
+      name: 'Exit Clearance',
+      to: '/clearance',
+      icon: <CIcon icon={cilCheckCircle} customClassName="nav-icon" />,
+      items: [
+        { component: CNavItem, name: 'My Clearance', to: '/user/clearance' },
+        { component: CNavItem, name: 'Clearance Inbox', to: '/clearance/inbox' },
+      ],
     },
     {
       component: CNavTitle,
@@ -300,6 +311,22 @@ const _nav = (userRole) => [
         name: 'Analytics',
         to: '/admin/salary-increment/analytics'
       },
+    ],
+  },
+
+  {
+    component: CNavGroup,
+    name: 'Exit Clearance',
+    to: '/admin/clearance',
+    icon: <CIcon icon={cilCheckCircle} customClassName="nav-icon" />,
+    items: [
+      { component: CNavItem, name: 'My Clearance', to: '/user/clearance' },
+      { component: CNavItem, name: 'Inbox', to: '/clearance/inbox' },
+      { component: CNavItem, name: 'All Clearances', to: '/admin/clearance/list' },
+      { component: CNavItem, name: 'Record a Departure', to: '/admin/clearance/new' },
+      { component: CNavItem, name: 'Units & Heads', to: '/admin/clearance/units' },
+      { component: CNavItem, name: 'Form Template', to: '/admin/clearance/template' },
+      { component: CNavItem, name: 'Settings', to: '/admin/clearance/settings' },
     ],
   },
 

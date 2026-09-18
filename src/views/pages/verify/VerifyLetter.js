@@ -30,18 +30,26 @@ const formatDate = (value) => {
 const StatusBanner = ({ status, revokedDate, rejectedDate }) => {
   const colorByStatus = {
     Viewed: '#1e8e3e',
+    // Salary-increment letters verify as Committed and exit clearances as
+    // Cleared; both are the valid, issued state for their document type.
+    Committed: '#1e8e3e',
+    Cleared: '#1e8e3e',
     Pending: '#b08000',
     Rejected: '#c5221f',
     Revoked: '#c5221f',
   };
   const titleByStatus = {
     Viewed: 'Genuine Letter',
+    Committed: 'Genuine Letter',
+    Cleared: 'Genuine Exit Clearance',
     Pending: 'Awaiting Approval',
     Rejected: 'Letter Rejected',
     Revoked: 'Letter Revoked',
   };
   const messageByStatus = {
     Viewed: 'This letter was issued by Zemen Bank and is currently valid.',
+    Committed: 'This letter was issued by Zemen Bank and is currently valid.',
+    Cleared: 'This exit clearance was completed and approved by Zemen Bank.',
     Pending:
       'This request has not been approved yet. The recipient should not treat it as a valid letter.',
     Rejected: rejectedDate
@@ -260,7 +268,7 @@ const VerifyLetter = () => {
                           <div style={{ marginTop: 4 }}>
                             <CBadge
                               color={
-                                state.data.status === 'Viewed'
+                                ['Viewed', 'Committed', 'Cleared'].includes(state.data.status)
                                   ? 'success'
                                   : state.data.status === 'Pending'
                                   ? 'warning'

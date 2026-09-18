@@ -46,6 +46,16 @@ const SalaryIncrementList = React.lazy(() => import('./views/admin/SalaryIncreme
 const SalaryIncrementPeriod = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementPeriod'));
 const SalaryIncrementAnalytics = React.lazy(() => import('./views/admin/SalaryIncrement/SalaryIncrementAnalytics'));
 
+// --- Exit clearance — independent module (does not share code with other letters) ---
+const ClearanceUserPage = React.lazy(() => import('./views/admin/Clearance/ClearanceUserPage'))
+const ClearanceInbox = React.lazy(() => import('./views/admin/Clearance/ClearanceInbox'))
+const ClearanceMyUnit = React.lazy(() => import('./views/admin/Clearance/ClearanceMyUnit'))
+const ClearanceList = React.lazy(() => import('./views/admin/Clearance/ClearanceList'))
+const ClearanceInitiate = React.lazy(() => import('./views/admin/Clearance/ClearanceInitiate'))
+const ClearanceUnits = React.lazy(() => import('./views/admin/Clearance/ClearanceUnits'))
+const ClearanceTemplate = React.lazy(() => import('./views/admin/Clearance/ClearanceTemplate'))
+const ClearanceSettings = React.lazy(() => import('./views/admin/Clearance/ClearanceSettings'))
+
 // --- Service rating (survey gate on letter print/download) -----------------
 const ServiceRatingDashboard = React.lazy(() => import('./views/admin/ServiceRating/ServiceRatingDashboard'));
 const ServiceRatingPolicy = React.lazy(() => import('./views/admin/ServiceRating/ServiceRatingPolicy'));
@@ -325,6 +335,58 @@ const routes = [
     path: '/admin/hris-reports/standard',
     name: 'HrisStandardReports',
     element: HrisStandardReports,
+    roles: ['admin']
+  },
+
+  // --- Exit clearance ---------------------------------------------------------
+  // Additive. Removing these entries and the lazy imports above restores the
+  // previous routing 1:1.
+  {
+    path: '/user/clearance',
+    name: 'ClearanceUser',
+    element: ClearanceUserPage,
+    roles: ['admin', 'user']
+  },
+  {
+    path: '/clearance/inbox',
+    name: 'ClearanceInbox',
+    element: ClearanceInbox,
+    roles: ['admin', 'user']
+  },
+  {
+    path: '/clearance/my-unit',
+    name: 'ClearanceMyUnit',
+    element: ClearanceMyUnit,
+    roles: ['admin', 'user']
+  },
+  {
+    path: '/admin/clearance/list',
+    name: 'ClearanceList',
+    element: ClearanceList,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/clearance/new',
+    name: 'ClearanceInitiate',
+    element: ClearanceInitiate,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/clearance/units',
+    name: 'ClearanceUnits',
+    element: ClearanceUnits,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/clearance/template',
+    name: 'ClearanceTemplate',
+    element: ClearanceTemplate,
+    roles: ['admin']
+  },
+  {
+    path: '/admin/clearance/settings',
+    name: 'ClearanceSettings',
+    element: ClearanceSettings,
     roles: ['admin']
   },
 ]
