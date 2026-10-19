@@ -15,6 +15,7 @@ import {
   cilPuzzle,
   cilSpeedometer,
   cilStar,
+  cilUser,
   cilUserFemale ,
   cilBuilding
 } from '@coreui/icons'
@@ -27,7 +28,15 @@ const _nav = (userRole) => [
     name: 'Letters',
     to: '/dashboard',
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
-   
+
+  },
+
+  // Both roles: everyone (admins included) sees their own HRIS record.
+  {
+    component: CNavItem,
+    name: 'My Profile',
+    to: '/user/profile',
+    icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
   },
 
   ...(userRole === 'user' ? [
