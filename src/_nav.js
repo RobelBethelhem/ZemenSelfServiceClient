@@ -22,7 +22,7 @@ import {
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
 
-const _nav = (userRole) => [
+const _nav = (userRole, { profileIsNew = false } = {}) => [
   {
     component: CNavItem,
     name: 'Letters',
@@ -37,6 +37,9 @@ const _nav = (userRole) => [
     name: 'My Profile',
     to: '/user/profile',
     icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
+    // Blinks with a NEW badge until the employee has opened it once
+    // (styles: components/profilePromo/profilePromo.css).
+    ...(profileIsNew ? { badge: { color: 'danger', text: 'NEW' }, className: 'zb-nav-new' } : {}),
   },
 
   ...(userRole === 'user' ? [
@@ -398,6 +401,13 @@ const _nav = (userRole) => [
     name: 'FAQ',
     to: '/admin/faq',
     icon: <CIcon icon={cilLifeRing} customClassName="nav-icon" />,
+  },
+
+  {
+    component: CNavItem,
+    name: 'Profile Analytics',
+    to: '/admin/profile-analytics',
+    icon: <CIcon icon={cilChartPie} customClassName="nav-icon" />,
   },
 
   {

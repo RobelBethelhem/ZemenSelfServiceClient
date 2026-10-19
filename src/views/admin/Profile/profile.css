@@ -2,13 +2,13 @@
    My Profile
    --------------------------------------------------------------------------
    Cover + identity header, stat tiles, then tabbed sections. Surfaces use
-   CoreUI's CSS variables so light and dark mode both work; the accent follows
-   the theme's primary colour.
+   CoreUI's CSS variables so light and dark mode both work; the accent is the
+   same red as the FAQ button.
    ========================================================================== */
 
 .zb-prof {
-  --zb-prof-accent: var(--cui-primary, #5856d6);
-  --zb-prof-accent-rgb: var(--cui-primary-rgb, 88, 86, 214);
+  --zb-prof-accent: #d32f2f;
+  --zb-prof-accent-rgb: 211, 47, 47;
   --zb-prof-surface: var(--cui-card-bg, var(--cui-body-bg, #fff));
   --zb-prof-border: var(--cui-border-color, #dbdfe6);
   --zb-prof-muted: var(--cui-secondary-color, #6b7785);
@@ -53,9 +53,9 @@
   height: 132px;
   background:
     radial-gradient(520px 200px at 12% 0%, rgba(255, 255, 255, 0.22), transparent 70%),
-    radial-gradient(420px 220px at 92% 120%, rgba(0, 200, 170, 0.35), transparent 70%),
+    radial-gradient(420px 220px at 92% 120%, rgba(255, 170, 120, 0.35), transparent 70%),
     radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.14) 1px, transparent 0) 0 0 / 18px 18px,
-    linear-gradient(120deg, #191848 0%, #2f2d8f 38%, var(--zb-prof-accent) 72%, #7c5cff 100%);
+    linear-gradient(120deg, #3b0a0f 0%, #8e1b22 38%, #d32f2f 72%, #ff6b5a 100%);
 }
 
 .zb-prof-head {
@@ -89,7 +89,7 @@
   font-size: 2.4rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  background: linear-gradient(135deg, #2f2d8f, var(--zb-prof-accent) 60%, #00b39b);
+  background: linear-gradient(135deg, #8e1b22, #d32f2f 60%, #ff7a59);
 }
 
 .zb-prof-avatar-inner img {
@@ -700,7 +700,7 @@
   color: #fff;
   background:
     radial-gradient(360px 160px at 100% 0%, rgba(255, 255, 255, 0.18), transparent 70%),
-    linear-gradient(120deg, #0f5132 0%, #198754 55%, #20c997 100%);
+    linear-gradient(120deg, #5c0f15 0%, #b71c1c 55%, #e53935 100%);
 }
 
 .zb-prof-kicker {
@@ -724,6 +724,12 @@
   opacity: 0.85;
 }
 
+.zb-prof-salary-sub {
+  margin-top: 6px;
+  font-size: 0.86rem;
+  opacity: 0.85;
+}
+
 .zb-prof-salary-hero .zb-prof-btn {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.45);
@@ -732,77 +738,6 @@
 
 .zb-prof-salary-hero .zb-prof-btn:hover {
   background: rgba(255, 255, 255, 0.22);
-}
-
-.zb-prof-steps {
-  margin: 20px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.zb-prof-step {
-  display: grid;
-  grid-template-columns: minmax(150px, 220px) 1fr minmax(110px, auto);
-  align-items: center;
-  gap: 14px;
-  padding: 10px 0;
-}
-
-.zb-prof-step + .zb-prof-step {
-  border-top: 1px dashed var(--zb-prof-border);
-}
-
-.zb-prof-step-label {
-  font-size: 0.88rem;
-  color: var(--zb-prof-strong);
-}
-
-.zb-prof-step.is-current .zb-prof-step-label {
-  font-weight: 600;
-}
-
-.zb-prof-bar {
-  height: 10px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--zb-prof-soft);
-}
-
-.zb-prof-bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #20c997, #198754);
-  transition: width 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-.zb-prof-bar span.is-masked {
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--zb-prof-border) 0 6px,
-    transparent 6px 12px
-  );
-}
-
-.zb-prof-step-amount {
-  text-align: right;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--zb-prof-strong);
-}
-
-.zb-prof-delta {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.zb-prof-delta.is-up {
-  color: #198754;
-}
-
-.zb-prof-delta.is-down {
-  color: #b02a37;
 }
 
 /* --- record history ----------------------------------------------------------------------- */
@@ -936,18 +871,20 @@
   color: #7ee2a8;
 }
 
-[data-coreui-theme='dark'] .zb-prof-chip.is-left,
-[data-coreui-theme='dark'] .zb-prof-delta.is-down {
+[data-coreui-theme='dark'] .zb-prof-chip.is-left {
   color: #f5a3ab;
+}
+
+/* A brighter red keeps accent text readable on the dark surface. */
+[data-coreui-theme='dark'] .zb-prof {
+  --zb-prof-accent: #ff6f6c;
+  --zb-prof-accent-rgb: 255, 111, 108;
 }
 
 [data-coreui-theme='dark'] .zb-prof-tag.is-warn {
   color: #ffd166;
 }
 
-[data-coreui-theme='dark'] .zb-prof-delta.is-up {
-  color: #5fd394;
-}
 
 /* --- responsive ------------------------------------------------------------------------- */
 
@@ -1006,13 +943,6 @@
   .zb-prof-card {
     padding: 16px;
   }
-  .zb-prof-step {
-    grid-template-columns: 1fr auto;
-  }
-  .zb-prof-step .zb-prof-bar {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1020,8 +950,5 @@
   .zb-prof-skel,
   .zb-prof-chip.is-active .zb-prof-dot {
     animation: none;
-  }
-  .zb-prof-bar span {
-    transition: none;
   }
 }

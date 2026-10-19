@@ -29,7 +29,8 @@ import {
   cilWallet,
   cilWarning,
 } from '@coreui/icons'
-import { fetchMyProfile, fetchMyPhotoUrl } from '../../../api/profile'
+import { fetchMyProfile, fetchMyPhotoUrl, trackProfileEvent } from '../../../api/profile'
+import { markProfileOpened } from '../../../components/ProfilePromo'
 import './profile.css'
 
 // My Profile — the signed-in employee's own HR record, read live from HRIS by
@@ -112,12 +113,6 @@ const initialsOf = (person) => {
   const a = (person.FirstName || person.DomainUser || '?').trim().charAt(0)
   const b = (person.FatherName || '').trim().charAt(0)
   return `${a}${b}`.toUpperCase()
-}
-
-const SALARY_STAGE_LABELS = {
-  'Before salary adjustment': 'Before the salary adjustment',
-  'Salary adjustment': 'After the salary adjustment',
-  'Current salary': 'Current salary',
 }
 
 // ---------------------------------------------------------------------------
@@ -551,11 +546,11 @@ const CareerTab = ({ jobs, person, terminated, postingLabel }) => {
   )
 }
 
-const SalaryTab = ({ stages, reveal, onToggle, terminated }) => {
-  const current = stages.find((s) => s.IsCurrent === 1)
-  const currentAmount = current ? Number(current.Amount) : null
-  const max = Math.max(1, ...stages.map((s) => Number(s.Amount) || 0))
-  const onPayroll = currentAmount != null && currentAmount > 0
+// The current salary only — earlier figures are deliberately not shown (the
+// API no longer returns them).
+const SalaryTab = ({ person, reveal, onToggle, terminated }) => {
+  const amount = person.Salary != null ? Number(person.Salary) : null
+  const onPayroll = amount != null && Number.isFinite(amount) && amount > 0
 
   return (
     <section className="zb-prof-card zb-prof-rise">
@@ -567,7 +562,7 @@ const SalaryTab = ({ stages, reveal, onToggle, terminated }) => {
               <small>{terminated ? 'Not on payroll' : 'Not on file'}</small>
             ) : reveal ? (
               <>
-                <small>ETB</small> {fmtMoney(currentAmount)}
+                <small>ETB</small> {fmtMoney(amount)}
               </>
             ) : (
               <>
@@ -575,51 +570,26 @@ const SalaryTab = ({ stages, reveal, onToggle, terminated }) => {
               </>
             )}
           </div>
+          {person.Position ? (
+            <div className="zb-prof-salary-sub">
+              {person.Position}
+              {person.JobGrade ? ` · Grade ${person.JobGrade}` : ''}
+            </div>
+          ) : null}
         </div>
-        <button type="button" className="zb-prof-btn" onClick={onToggle} aria-pressed={reveal}>
-          <CIcon icon={reveal ? cilLockUnlocked : cilLockLocked} />
-          {reveal ? 'Hide amounts' : 'Show amounts'}
-        </button>
+        {onPayroll ? (
+          <button type="button" className="zb-prof-btn" onClick={onToggle} aria-pressed={reveal}>
+            <CIcon icon={reveal ? cilLockUnlocked : cilLockLocked} />
+            {reveal ? 'Hide amount' : 'Show amount'}
+          </button>
+        ) : null}
       </div>
-
-      {stages.length > 1 ? (
-        <ol className="zb-prof-steps">
-          {stages.map((s, i) => {
-            const amount = Number(s.Amount) || 0
-            const change = s.ChangeFromPrevious != null ? Number(s.ChangeFromPrevious) : null
-            const up = change != null && change >= 0
-            return (
-              <li key={i} className={`zb-prof-step${s.IsCurrent === 1 ? ' is-current' : ''}`}>
-                <div className="zb-prof-step-label">{SALARY_STAGE_LABELS[s.Stage] || s.Stage}</div>
-                <div className="zb-prof-bar">
-                  <span
-                    className={reveal ? '' : 'is-masked'}
-                    style={{ width: reveal ? `${Math.max(4, (amount / max) * 100)}%` : '100%' }}
-                  />
-                </div>
-                <div className="zb-prof-step-amount">
-                  {reveal ? fmtMoney(amount) : '••••••'}
-                  {reveal && change != null && amount > 0 ? (
-                    <span className={`zb-prof-delta ${up ? 'is-up' : 'is-down'}`}>
-                      {up ? '+' : '−'}
-                      {fmtMoney(Math.abs(change))}
-                      {s.ChangePct != null
-                        ? ` (${up ? '+' : '−'}${Math.abs(Number(s.ChangePct))}%)`
-                        : ''}
-                    </span>
-                  ) : null}
-                </div>
-              </li>
-            )
-          })}
-        </ol>
-      ) : null}
 
       <p className="zb-prof-note">
         <CIcon icon={cilInfo} />
         <span>
-          HRIS keeps one live salary. Earlier figures come from salary-adjustment records, which are
-          not dated — the order is reliable, the timing is not.
+          Your salary as recorded in HRIS today. If it does not look right, please contact the HR
+          team.
         </span>
       </p>
     </section>
@@ -690,6 +660,8 @@ const MyProfile = () => {
     setError(null)
     try {
       setProfile(await fetchMyProfile({ accessToken }))
+      // The server has logged the visit; stop the sidebar blink and pop-up now.
+      markProfileOpened()
     } catch (e) {
       setError(e)
     } finally {
@@ -719,6 +691,19 @@ const MyProfile = () => {
       if (url) URL.revokeObjectURL(url)
     }
   }, [hasPhoto, accessToken])
+
+  // Usage log for the admin analytics: which sections were looked at. The
+  // server ignores a repeat of the same section within 30 seconds.
+  const loaded = !!profile
+  useEffect(() => {
+    if (loaded) trackProfileEvent({ accessToken, event: 'section', section: tab })
+  }, [loaded, tab, accessToken])
+
+  const toggleReveal = () => {
+    const next = !reveal
+    setReveal(next)
+    if (next) trackProfileEvent({ accessToken, event: 'reveal', section: tab })
+  }
 
   const counts = useMemo(() => {
     if (!profile) return {}
@@ -752,7 +737,7 @@ const MyProfile = () => {
     )
   }
 
-  const { person, education, training, jobs, salary, history } = profile
+  const { person, education, training, jobs, history } = profile
   const terminated = !!person.TerminationDate
   const postingLabel = terminated ? 'Last posting' : 'Current posting'
   const fullName =
@@ -829,7 +814,7 @@ const MyProfile = () => {
             <button
               type="button"
               className={`zb-prof-btn${reveal ? ' is-on' : ''}`}
-              onClick={() => setReveal((r) => !r)}
+              onClick={toggleReveal}
               aria-pressed={reveal}
             >
               <CIcon icon={reveal ? cilLockUnlocked : cilLockLocked} />
@@ -861,7 +846,7 @@ const MyProfile = () => {
         <StatTile
           index={2}
           icon={cilClock}
-          tone="88, 86, 214"
+          tone="211, 47, 47"
           label={terminated ? 'In last position' : 'In current position'}
           value={fmtSpan(person.InPositionMonths)}
           sub={person.InPositionSince ? `Since ${fmtDate(person.InPositionSince)}` : null}
@@ -877,7 +862,7 @@ const MyProfile = () => {
         <StatTile
           index={4}
           icon={cilBirthdayCake}
-          tone="214, 51, 132"
+          tone="3, 105, 161"
           label="Age"
           value={ageYears != null ? `${ageYears} years` : null}
           sub={person.DateOfBirth ? `Born ${fmtDate(person.DateOfBirth)}` : null}
@@ -921,9 +906,9 @@ const MyProfile = () => {
         ) : null}
         {tab === 'salary' ? (
           <SalaryTab
-            stages={salary}
+            person={person}
             reveal={reveal}
-            onToggle={() => setReveal((r) => !r)}
+            onToggle={toggleReveal}
             terminated={terminated}
           />
         ) : null}
@@ -995,7 +980,7 @@ CareerTab.propTypes = {
 }
 
 SalaryTab.propTypes = {
-  stages: rows.isRequired,
+  person: row.isRequired,
   reveal: PropTypes.bool,
   onToggle: PropTypes.func.isRequired,
   terminated: PropTypes.bool,

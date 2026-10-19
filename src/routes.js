@@ -74,6 +74,7 @@ const FaqManager = React.lazy(() => import('./views/admin/Faq/FaqManager'));
 
 // --- My Profile (own HRIS record) -------------------------------------------
 const MyProfile = React.lazy(() => import('./views/admin/Profile/MyProfile'));
+const ProfileAnalytics = React.lazy(() => import('./views/admin/Profile/ProfileAnalytics'));
 
 // --- HRIS reporting --------------------------------------------------------
 const HrisExplorer = React.lazy(() => import('./views/admin/HrisReport/HrisExplorer'));
@@ -339,6 +340,12 @@ const routes = [
     name: 'My Profile',
     element: MyProfile,
     roles: ['admin', 'user']
+  },
+  {
+    path: '/admin/profile-analytics',
+    name: 'Profile Analytics',
+    element: ProfileAnalytics,
+    roles: ['admin']
   },
 
   // --- Frequently Asked Questions ------------------------------------------

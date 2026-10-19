@@ -1,0 +1,307 @@
+/* ==========================================================================
+   My Profile "new feature" campaign
+   --------------------------------------------------------------------------
+   .zb-nav-new   the sidebar entry while the employee has not opened My Profile:
+                 a slow red pulse plus a NEW badge (classes set from _nav.js)
+   .zb-promo     the pop-up card beside that entry (or floating on phones)
+   Same red as the FAQ button. The pulse is ~0.5 Hz — well under the 3-flashes-
+   per-second limit — and becomes a steady highlight for reduced motion.
+   ========================================================================== */
+
+.sidebar-nav .nav-link.zb-nav-new {
+  position: relative;
+  color: #fff;
+  animation: zb-nav-pulse 1.8s ease-in-out infinite;
+}
+
+.sidebar-nav .nav-link.zb-nav-new .nav-icon {
+  color: #ff8a80;
+}
+
+.sidebar-nav .nav-link.zb-nav-new .badge {
+  animation: zb-nav-badge 1.8s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(239, 83, 80, 0.6);
+}
+
+@keyframes zb-nav-pulse {
+  0%,
+  100% {
+    background-color: rgba(211, 47, 47, 0.12);
+    box-shadow: inset 3px 0 0 #e53935;
+  }
+  50% {
+    background-color: rgba(211, 47, 47, 0.42);
+    box-shadow: inset 3px 0 0 #ff8a80;
+  }
+}
+
+@keyframes zb-nav-badge {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 83, 80, 0.6);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 5px rgba(239, 83, 80, 0);
+  }
+}
+
+/* --- pop-up ------------------------------------------------------------------- */
+
+.zb-promo {
+  --zb-promo-accent: #d32f2f;
+  position: fixed;
+  z-index: 1044; /* above the sidebar, below the FAQ button and CoreUI modals */
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  padding: 20px 20px 18px;
+  border-radius: 16px;
+  color: var(--cui-body-color, #212529);
+  background: var(--cui-body-bg, #fff);
+  border: 1px solid var(--cui-border-color, #dee2e6);
+  box-shadow:
+    0 22px 50px rgba(15, 23, 42, 0.28),
+    0 6px 14px rgba(15, 23, 42, 0.14);
+}
+
+.zb-promo.is-anchored {
+  transform-origin: left center;
+  animation: zb-promo-pop 520ms cubic-bezier(0.18, 1.3, 0.4, 1) both;
+}
+
+/* Clears the FAQ button's default bottom-right spot (56px + 16px edge). */
+.zb-promo.is-floating {
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  animation: zb-promo-rise 420ms cubic-bezier(0.18, 1.2, 0.4, 1) both;
+}
+
+@keyframes zb-promo-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-14px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes zb-promo-rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 24px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* The arrow is a rotated square sharing the card's border, pointing at the
+   sidebar entry. */
+.zb-promo-arrow {
+  position: absolute;
+  left: -8px;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  transform: rotate(45deg);
+  background: var(--cui-body-bg, #fff);
+  border-left: 1px solid var(--cui-border-color, #dee2e6);
+  border-bottom: 1px solid var(--cui-border-color, #dee2e6);
+}
+
+.zb-promo-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--cui-secondary-color, #6c757d);
+  background: transparent;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zb-promo-close:hover {
+  background: var(--cui-tertiary-bg, #f3f4f7);
+}
+
+.zb-promo-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 24px;
+}
+
+.zb-promo-icon {
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #8e1b22, var(--zb-promo-accent) 55%, #ff6b5a);
+  box-shadow: 0 8px 18px rgba(211, 47, 47, 0.35);
+}
+
+.zb-promo-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.zb-promo-icon::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 17px;
+  border: 2px solid var(--zb-promo-accent);
+  opacity: 0;
+  animation: zb-promo-ring 1.8s ease-out 3 600ms;
+}
+
+@keyframes zb-promo-ring {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+.zb-promo-new {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--zb-promo-accent);
+}
+
+.zb-promo-title {
+  margin: 4px 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--cui-emphasis-color, #080a0c);
+}
+
+.zb-promo-body {
+  margin: 12px 0 10px;
+  font-size: 0.9rem;
+  color: var(--cui-secondary-color, #6c757d);
+}
+
+.zb-promo-features {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.zb-promo-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 0.86rem;
+}
+
+.zb-promo-check {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: #2eb85c;
+}
+
+.zb-promo-check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.zb-promo-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.zb-promo-primary {
+  flex: 1 1 auto;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: var(--zb-promo-accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(211, 47, 47, 0.3);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.zb-promo-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(211, 47, 47, 0.38);
+}
+
+.zb-promo-primary:focus-visible,
+.zb-promo-later:focus-visible {
+  outline: 3px solid rgba(211, 47, 47, 0.4);
+  outline-offset: 2px;
+}
+
+.zb-promo-later {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border: 1px solid var(--cui-border-color, #dee2e6);
+  border-radius: 10px;
+  color: var(--cui-body-color, #212529);
+  background: transparent;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.zb-promo-later:hover {
+  background: var(--cui-tertiary-bg, #f3f4f7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-nav .nav-link.zb-nav-new,
+  .sidebar-nav .nav-link.zb-nav-new .badge {
+    animation: none;
+  }
+  .sidebar-nav .nav-link.zb-nav-new {
+    background-color: rgba(211, 47, 47, 0.3);
+    box-shadow: inset 3px 0 0 #ff8a80;
+  }
+  .zb-promo.is-anchored,
+  .zb-promo.is-floating,
+  .zb-promo-icon::after {
+    animation: none;
+  }
+}
+
+@media print {
+  .zb-promo {
+    display: none !important;
+  }
+}

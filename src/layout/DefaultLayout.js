@@ -24,6 +24,7 @@ import PushNotificationUtil from '../utils/pushNotificationUtil'
 import { AppContent, AppSidebar, AppFooter, AppHeader } from '../components/index'
 import AnnouncementGate from '../components/AnnouncementGate'
 import FaqFab from '../components/FaqFab'
+import ProfilePromo from '../components/ProfilePromo'
 
 const DefaultLayout = () => {
   const accessToken = useSelector((state) => state.user.accessToken)
@@ -73,6 +74,9 @@ const DefaultLayout = () => {
       {/* Floating, movable FAQ help button. Hidden until HR publishes a
           question at /admin/faq. */}
       <FaqFab />
+      {/* "New: My Profile" pop-up beside the blinking sidebar entry, until the
+          employee has opened it once. */}
+      <ProfilePromo />
       <AppSidebar />
       <div className="wrapper d-flex flex-column min-vh-100">
         <AppHeader />

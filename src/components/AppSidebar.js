@@ -19,14 +19,17 @@ import { logo } from 'src/assets/brand/logo'
 
 // sidebar nav config
 import _nav  from '../_nav'
+import { useProfileIsNew } from './ProfilePromo'
 
 const AppSidebar = () => {
   const dispatch = useDispatch()
   const unfoldable = useSelector((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector((state) => state.sidebarShow)
   const userRole = useSelector((state) => state.user.role)
+  // My Profile blinks with a NEW badge until this employee has opened it once.
+  const profileIsNew = useProfileIsNew()
 
-  const navigation = _nav(userRole)
+  const navigation = _nav(userRole, { profileIsNew })
 
   return (
     <CSidebar
