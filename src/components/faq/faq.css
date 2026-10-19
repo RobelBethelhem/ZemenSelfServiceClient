@@ -3,9 +3,18 @@
    --------------------------------------------------------------------------
    .zb-faq-fab    the round button, positioned in px from JS (draggable)
    .zb-faq-panel  the question list, placed next to the button from JS
-   Colours come from CoreUI's CSS variables so light and dark mode both work.
+   Surfaces come from CoreUI's CSS variables so light and dark mode both work;
+   the accent is the widget's own red.
    Sits under CoreUI modals (1050+) and the announcement overlay (2050).
    ========================================================================== */
+
+/* One accent for the whole widget: the button is red so it stands apart from
+   the portal's indigo chrome, and the panel it opens matches it. */
+.zb-faq-fab,
+.zb-faq-panel {
+  --zb-faq-accent: #d32f2f;
+  --zb-faq-accent-rgb: 211, 47, 47;
+}
 
 .zb-faq-fab {
   position: fixed;
@@ -19,7 +28,7 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  background: var(--cui-primary, #321fdb);
+  background: var(--zb-faq-accent);
   box-shadow:
     0 6px 16px rgba(0, 0, 0, 0.22),
     0 2px 4px rgba(0, 0, 0, 0.18);
@@ -41,7 +50,7 @@
 }
 
 .zb-faq-fab:focus-visible {
-  outline: 3px solid rgba(var(--cui-primary-rgb, 50, 31, 219), 0.45);
+  outline: 3px solid rgba(var(--zb-faq-accent-rgb), 0.45);
   outline-offset: 3px;
 }
 
@@ -66,7 +75,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 3px solid var(--cui-primary, #321fdb);
+  border: 3px solid var(--zb-faq-accent);
   animation: zb-faq-ring 1.8s ease-out 4;
   pointer-events: none;
 }
@@ -123,7 +132,7 @@
   gap: 12px;
   padding: 14px 16px 12px;
   color: #fff;
-  background: var(--cui-primary, #321fdb);
+  background: var(--zb-faq-accent);
 }
 
 .zb-faq-title {
@@ -172,8 +181,8 @@
 
 .zb-faq-search:focus {
   outline: none;
-  border-color: var(--cui-primary, #321fdb);
-  box-shadow: 0 0 0 3px rgba(var(--cui-primary-rgb, 50, 31, 219), 0.18);
+  border-color: var(--zb-faq-accent);
+  box-shadow: 0 0 0 3px rgba(var(--zb-faq-accent-rgb), 0.18);
 }
 
 .zb-faq-chips {
@@ -197,8 +206,8 @@
 
 .zb-faq-chip.is-active {
   color: #fff;
-  border-color: var(--cui-primary, #321fdb);
-  background: var(--cui-primary, #321fdb);
+  border-color: var(--zb-faq-accent);
+  background: var(--zb-faq-accent);
 }
 
 .zb-faq-list {
@@ -245,7 +254,7 @@
 }
 
 .zb-faq-item.is-open .zb-faq-q {
-  color: var(--cui-primary, #321fdb);
+  color: var(--zb-faq-accent);
 }
 
 .zb-faq-a {
@@ -284,7 +293,7 @@
   margin-top: 8px;
   border: 0;
   background: transparent;
-  color: var(--cui-primary, #321fdb);
+  color: var(--zb-faq-accent);
   text-decoration: underline;
   cursor: pointer;
 }
