@@ -23,6 +23,7 @@ import { useSelector } from 'react-redux'
 import PushNotificationUtil from '../utils/pushNotificationUtil'
 import { AppContent, AppSidebar, AppFooter, AppHeader } from '../components/index'
 import AnnouncementGate from '../components/AnnouncementGate'
+import FaqFab from '../components/FaqFab'
 
 const DefaultLayout = () => {
   const accessToken = useSelector((state) => state.user.accessToken)
@@ -69,6 +70,9 @@ const DefaultLayout = () => {
       {/* Renders nothing unless this employee has an unseen or unacknowledged
           announcement, so it is invisible on ordinary page loads. */}
       <AnnouncementGate />
+      {/* Floating, movable FAQ help button. Hidden until HR publishes a
+          question at /admin/faq. */}
+      <FaqFab />
       <AppSidebar />
       <div className="wrapper d-flex flex-column min-vh-100">
         <AppHeader />

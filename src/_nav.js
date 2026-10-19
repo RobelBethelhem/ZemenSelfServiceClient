@@ -9,6 +9,7 @@ import {
   cilCursor,
   cilDescription,
   cilDrop,
+  cilLifeRing,
   cilNotes,
   cilPencil,
   cilPuzzle,
@@ -381,6 +382,13 @@ const _nav = (userRole) => [
         to: '/admin/announcements/categories'
       },
     ],
+  },
+
+  {
+    component: CNavItem,
+    name: 'FAQ',
+    to: '/admin/faq',
+    icon: <CIcon icon={cilLifeRing} customClassName="nav-icon" />,
   },
 
   {

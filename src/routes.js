@@ -69,6 +69,9 @@ const AnnouncementList = React.lazy(() => import('./views/admin/Announcement/Ann
 const AnnouncementBuilder = React.lazy(() => import('./views/admin/Announcement/AnnouncementBuilder'));
 const AnnouncementCategories = React.lazy(() => import('./views/admin/Announcement/AnnouncementCategories'));
 
+// --- Frequently Asked Questions (floating help button) ---------------------
+const FaqManager = React.lazy(() => import('./views/admin/Faq/FaqManager'));
+
 // --- HRIS reporting --------------------------------------------------------
 const HrisExplorer = React.lazy(() => import('./views/admin/HrisReport/HrisExplorer'));
 const HrisStandardReports = React.lazy(() => import('./views/admin/HrisReport/HrisStandardReports'));
@@ -324,6 +327,14 @@ const routes = [
     path: '/admin/announcements/categories',
     name: 'AnnouncementCategories',
     element: AnnouncementCategories,
+    roles: ['admin']
+  },
+
+  // --- Frequently Asked Questions ------------------------------------------
+  {
+    path: '/admin/faq',
+    name: 'FAQ',
+    element: FaqManager,
     roles: ['admin']
   },
 
