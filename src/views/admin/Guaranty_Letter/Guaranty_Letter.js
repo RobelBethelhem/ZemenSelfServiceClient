@@ -353,7 +353,7 @@ const GuarantyLetterRequestForm = () => {
                     <CCol xs={12}>
                       <h5 className="mb-3">
                         <CIcon icon={cilUser} className="me-2" />
-                        የሠራተኛው መረጃ
+                        የዘመን ባንክ አ.ማ ሠራተኛ መረጃ መሙያ ገፅ
                       </h5>
                     </CCol>
                     <CCol md={4}>
@@ -394,7 +394,7 @@ const GuarantyLetterRequestForm = () => {
                     <CCol xs={12}>
                       <h5 className="mb-3">
                         <CIcon icon={cilBriefcase} className="me-2" />
-                        የዋሱ/ሷ ሙሉ መረጃ  
+                        ዋስትና የሚገባለት ግለሰብ እና የተቋሙን መረጃ መሙያ ገፅ
                       </h5>
                     </CCol>
                     <CCol md={3}>
